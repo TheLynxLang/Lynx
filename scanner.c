@@ -24,6 +24,10 @@ static char peek() {
     return *scanner.current; 
 }
 
+static char peekNext() {
+    return scanner.current[1];
+}
+
 static Token makeToken(LynxTokenType type) {
     Token token;
     token.type = type;
@@ -47,6 +51,17 @@ static LynxTokenType checkKeyword() {
     if (len == 4 && strncmp(s, "Else", 4) == 0) return TOKEN_ELSE;
     if (len == 7 && strncmp(s, "LoadLib", 7) == 0) return TOKEN_LOAD_LIB;
     
+    // New keywords
+    if (len == 4 && strncmp(s, "Func", 4) == 0) return TOKEN_FUNC;
+    if (len == 6 && strncmp(s, "Return", 6) == 0) return TOKEN_RETURN;
+    if (len == 3 && strncmp(s, "For", 3) == 0) return TOKEN_FOR;
+    if (len == 5 && strncmp(s, "While", 5) == 0) return TOKEN_WHILE;
+    if (len == 5 && strncmp(s, "Break", 5) == 0) return TOKEN_BREAK;
+    if (len == 8 && strncmp(s, "Continue", 8) == 0) return TOKEN_CONTINUE;
+    if (len == 3 && strncmp(s, "And", 3) == 0) return TOKEN_AND;
+    if (len == 2 && strncmp(s, "Or", 2) == 0) return TOKEN_OR;
+    if (len == 3 && strncmp(s, "Not", 3) == 0) return TOKEN_NOT;
+    
     return TOKEN_IDENTIFIER;
 }
 
@@ -57,7 +72,7 @@ static Token identifier() {
 
 static Token number() {
     while (isdigit(peek())) advance();
-    if (peek() == '.' && isdigit(scanner.current[1])) {
+    if (peek() == '.' && isdigit(peekNext())) {
         advance();
         while (isdigit(peek())) advance();
     }
@@ -84,7 +99,7 @@ Token scanToken() {
         return scanToken();
     }
     
-    if (peek() == '/' && scanner.current[1] == '/') {
+    if (peek() == '/' && peekNext() == '/') {
         advance(); advance();
         while (peek() != '\n' && !isAtEnd()) advance();
         if (isAtEnd()) return makeToken(TOKEN_EOF);
@@ -100,12 +115,29 @@ Token scanToken() {
     if (isdigit(c)) return number();
 
     switch (c) {
-        case '+': return makeToken(TOKEN_PLUS);
-        case '-': return makeToken(TOKEN_MINUS);
+        case '+':
+            if (peek() == '+') {
+                advance();
+                return makeToken(TOKEN_INCREMENT);
+            }
+            return makeToken(TOKEN_PLUS);
+        case '-':
+            if (peek() == '-') {
+                advance();
+                return makeToken(TOKEN_DECREMENT);
+            }
+            return makeToken(TOKEN_MINUS);
         case '*': return makeToken(TOKEN_STAR);
         case '/': return makeToken(TOKEN_SLASH);
+        case '%': return makeToken(TOKEN_MODULO);
         case '{': return makeToken(TOKEN_LBRACE);
         case '}': return makeToken(TOKEN_RBRACE);
+        case '(': return makeToken(TOKEN_LPAREN);
+        case ')': return makeToken(TOKEN_RPAREN);
+        case '[': return makeToken(TOKEN_LBRACKET);
+        case ']': return makeToken(TOKEN_RBRACKET);
+        case ',': return makeToken(TOKEN_COMMA);
+        case ':': return makeToken(TOKEN_COLON);
         case '=': 
             if (peek() == '=') {
                 advance();
@@ -117,7 +149,7 @@ Token scanToken() {
                 advance();
                 return makeToken(TOKEN_NE);
             }
-            return makeToken(TOKEN_ERROR);
+            return makeToken(TOKEN_NOT);
         case '>':
             if (peek() == '=') {
                 advance();

@@ -8,25 +8,46 @@
 
 #pragma comment(lib, "urlmon.lib")
 
-#define LYNX_VERSION "v1.3.2"
+#define LYNX_VERSION "v1.3.3"
 
 // Access the global scanner defined in scanner.c
 extern Scanner scanner; 
 
 void show_help() {
-    printf("\n🐾 LYNX COMMANDS:\n");
+    printf("\n🐾 LYNX 1.3.3 COMMANDS:\n");
+    printf("\n  VARIABLES:\n");
     printf("  Set x = 10         - Create/Update variable\n");
+    printf("  Set x = \"hello\"    - Create string variable\n");
     printf("  Roar x             - Print value\n");
     printf("  Hunt               - Show Den contents\n");
     printf("  Pounce x           - Delete variable x\n");
+    printf("  x++, x--           - Increment/Decrement\n");
+    
+    printf("\n  CONTROL FLOW:\n");
     printf("  If x > 5 { ... }   - Conditional execution\n");
+    printf("  For i = 0 To 10 {} - Loop from 0 to 10\n");
+    printf("  While x > 0 { ... }- Loop while condition true\n");
+    printf("  Break              - Exit loop\n");
+    printf("  Continue           - Next iteration\n");
+    
+    printf("\n  FUNCTIONS:\n");
+    printf("  Func name(a, b) {} - Define function\n");
+    printf("  name(1, 2)         - Call function\n");
+    printf("  Return             - Exit function\n");
+    
+    printf("\n  OPERATORS:\n");
+    printf("  +, -, *, /, %%     - Arithmetic\n");
+    printf("  >, <, >=, <=       - Comparison\n");
+    printf("  ==, !=             - Equality\n");
+    printf("  And, Or, Not       - Logic\n");
+    
+    printf("\n  OTHER:\n");
     printf("  LoadLib \"name\"     - Load C DLL from ./lib/\n");
     printf("  Stalk_Pack \"file\"  - Run a .lnx script\n");
     printf("  Help               - Show this menu\n");
     printf("  Exit               - Close Lynx\n");
     printf("  --version          - Show version\n");
     printf("  --update           - Fetch newest Lynx\n\n");
-    printf("  filename.lnx       - Another method to run a .lnx script\n\n");
 }
 
 void runFile(const char* path) {
@@ -104,8 +125,9 @@ int main(int argc, char* argv[]) {
             runFile(argv[1]);
         }
         
-        // Clean up loaded libraries
+        // Clean up
         unload_all_libs();
+        cleanup_all();
         return 0;
     }
 
@@ -129,7 +151,9 @@ int main(int argc, char* argv[]) {
         }
     }
     
-    // Clean up loaded libraries
+    // Clean up
     unload_all_libs();
+    cleanup_all();
+    printf("🐾 Goodbye!\n");
     return 0;
 }
