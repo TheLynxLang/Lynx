@@ -1,0 +1,14 @@
+# init.lnx – Lynx package manager init script
+
+Roar "🐾 Initializing Lynx project..."
+
+# Create lynx.toml
+KittyWriteFile "lynx.toml" "[package]\nname = \"my_project\"\nversion = \"0.1.0\"\nauthors = [\"very cool person\"]\ndescription = \"A Lynx project\"\n\n[dependencies]\n"
+
+# Create src folder
+Paw "src"
+
+# Create main.lnx
+KittyWriteFile "src/main.lnx" "Roar \"Hello from Lynx!\"\n"
+
+Roar "✅ Project initialized. Run 'lynx build' next."
