@@ -15,7 +15,7 @@ typedef enum {
     // Logic and Array
     TOKEN_AND, TOKEN_OR, TOKEN_NOT, TOKEN_LBRACKET, TOKEN_RBRACKET,
 
-    // File I/O (Kitty commands + Paw)
+    // File I/O
     TOKEN_KITTY_WRITE_FILE,
     TOKEN_KITTY_READ_FILE,
     TOKEN_PAW,
@@ -23,6 +23,9 @@ typedef enum {
     TOKEN_KITTY_LIST_FILES,
     TOKEN_KITTY_REMOVE_FILE,
     TOKEN_KITTY_READ_DIR,
+
+    // System
+    TOKEN_RUN,
 
     // Identifiers and Values
     TOKEN_IDENTIFIER, TOKEN_STRING, TOKEN_NUMBER,
@@ -109,6 +112,9 @@ int callFunction(const char* name);
 // Library Loading
 void load_lib(const char* lib_name);
 void unload_all_libs();
+
+// Compiler
+void compile_to_exe(const char* input, const char* output, int standalone);
 
 // Cleanup
 void cleanup_all();
