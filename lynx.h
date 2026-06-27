@@ -21,6 +21,9 @@ typedef enum {
     // System
     TOKEN_RUN,
 
+    // Package manager
+    TOKEN_KITTY_PORT,
+
     // String functions
     TOKEN_STRING_SPLIT,
     TOKEN_STRING_CONTAINS,
