@@ -1,5 +1,34 @@
-Set red = 31
-Set green = 32
-Set yellow = 33
-Set blue = 34
-Set reset = 0
+# ============================================
+# colors.lnx – ANSI color codes for Lynx
+# ============================================
+
+Set color_reset   = "\033[0m"
+Set color_red     = "\033[31m"
+Set color_green   = "\033[32m"
+Set color_yellow  = "\033[33m"
+Set color_blue    = "\033[34m"
+Set color_magenta = "\033[35m"
+Set color_cyan    = "\033[36m"
+Set color_white   = "\033[37m"
+
+Set color_bright_red     = "\033[91m"
+Set color_bright_green   = "\033[92m"
+Set color_bright_yellow  = "\033[93m"
+Set color_bright_blue    = "\033[94m"
+Set color_bright_magenta = "\033[95m"
+Set color_bright_cyan    = "\033[96m"
+Set color_bright_white   = "\033[97m"
+
+Set color_bg_black   = "\033[40m"
+Set color_bg_red     = "\033[41m"
+Set color_bg_green   = "\033[42m"
+Set color_bg_yellow  = "\033[43m"
+Set color_bg_blue    = "\033[44m"
+Set color_bg_magenta = "\033[45m"
+Set color_bg_cyan    = "\033[46m"
+Set color_bg_white   = "\033[47m"
+
+Set color_bold   = "\033[1m"
+Set color_dim    = "\033[2m"
+Set color_italic = "\033[3m"
+Set color_underline = "\033[4m"
