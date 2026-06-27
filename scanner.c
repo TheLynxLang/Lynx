@@ -12,16 +12,16 @@ void initScanner(const char* source) {
     scanner.line = 1;
 }
 
-static bool isAtEnd() { 
-    return *scanner.current == '\0'; 
+static bool isAtEnd() {
+    return *scanner.current == '\0';
 }
 
-static char advance() { 
-    return *scanner.current++; 
+static char advance() {
+    return *scanner.current++;
 }
 
-static char peek() { 
-    return *scanner.current; 
+static char peek() {
+    return *scanner.current;
 }
 
 static char peekNext() {
@@ -40,7 +40,7 @@ static Token makeToken(LynxTokenType type) {
 static LynxTokenType checkKeyword() {
     int len = (int)(scanner.current - scanner.start);
     const char* s = scanner.start;
-    
+
     if (len == 3 && strncmp(s, "Set", 3) == 0) return TOKEN_SET;
     if (len == 4 && strncmp(s, "Roar", 4) == 0) return TOKEN_ROAR;
     if (len == 4 && strncmp(s, "Hunt", 4) == 0) return TOKEN_HUNT;
@@ -50,8 +50,6 @@ static LynxTokenType checkKeyword() {
     if (len == 2 && strncmp(s, "If", 2) == 0) return TOKEN_IF;
     if (len == 4 && strncmp(s, "Else", 4) == 0) return TOKEN_ELSE;
     if (len == 7 && strncmp(s, "LoadLib", 7) == 0) return TOKEN_LOAD_LIB;
-    
-    // New keywords
     if (len == 4 && strncmp(s, "Func", 4) == 0) return TOKEN_FUNC;
     if (len == 6 && strncmp(s, "Return", 6) == 0) return TOKEN_RETURN;
     if (len == 3 && strncmp(s, "For", 3) == 0) return TOKEN_FOR;
@@ -61,7 +59,16 @@ static LynxTokenType checkKeyword() {
     if (len == 3 && strncmp(s, "And", 3) == 0) return TOKEN_AND;
     if (len == 2 && strncmp(s, "Or", 2) == 0) return TOKEN_OR;
     if (len == 3 && strncmp(s, "Not", 3) == 0) return TOKEN_NOT;
-    
+
+    // File I/O
+    if (len == 15 && strncmp(s, "KittyWriteFile", 15) == 0) return TOKEN_KITTY_WRITE_FILE;
+    if (len == 14 && strncmp(s, "KittyReadFile", 14) == 0) return TOKEN_KITTY_READ_FILE;
+    if (len == 3 && strncmp(s, "Paw", 3) == 0) return TOKEN_PAW;
+    if (len == 16 && strncmp(s, "KittyFileExists", 16) == 0) return TOKEN_KITTY_FILE_EXISTS;
+    if (len == 15 && strncmp(s, "KittyListFiles", 15) == 0) return TOKEN_KITTY_LIST_FILES;
+    if (len == 16 && strncmp(s, "KittyRemoveFile", 16) == 0) return TOKEN_KITTY_REMOVE_FILE;
+    if (len == 14 && strncmp(s, "KittyReadDir", 14) == 0) return TOKEN_KITTY_READ_DIR;
+
     return TOKEN_IDENTIFIER;
 }
 
@@ -87,18 +94,16 @@ Token peekToken() {
 }
 
 Token scanToken() {
-    // Skip whitespace
     while (isspace(peek())) {
         if (advance() == '\n') scanner.line++;
     }
 
-    // Handle comments
     if (peek() == '#') {
         while (peek() != '\n' && !isAtEnd()) advance();
         if (isAtEnd()) return makeToken(TOKEN_EOF);
         return scanToken();
     }
-    
+
     if (peek() == '/' && peekNext() == '/') {
         advance(); advance();
         while (peek() != '\n' && !isAtEnd()) advance();
@@ -138,7 +143,7 @@ Token scanToken() {
         case ']': return makeToken(TOKEN_RBRACKET);
         case ',': return makeToken(TOKEN_COMMA);
         case ':': return makeToken(TOKEN_COLON);
-        case '=': 
+        case '=':
             if (peek() == '=') {
                 advance();
                 return makeToken(TOKEN_EQ);
