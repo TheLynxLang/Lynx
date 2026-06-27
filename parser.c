@@ -291,6 +291,27 @@ void parse_statement() {
         return;
     }
 
+    // ----- KITTY PORT (Package Import) -----
+    if (t.type == TOKEN_KITTY_PORT) {
+        Token nameToken = scanToken();
+        if (nameToken.type == TOKEN_STRING) {
+            char name[64];
+            snprintf(name, nameToken.length - 1, "%s", nameToken.start + 1);
+            char path[256];
+            snprintf(path, sizeof(path), "libs/%s/main.lnx", name);
+            
+            // Check if file exists
+            FILE* f = fopen(path, "r");
+            if (f) {
+                fclose(f);
+                runFile(path);
+            } else {
+                printf("🐾 KittyPort: Package '%s' not found in libs/\n", name);
+            }
+        }
+        return;
+    }
+
     // File I/O
     if (t.type == TOKEN_KITTY_WRITE_FILE) {
         Token path = scanToken();
@@ -373,8 +394,6 @@ void parse_statement() {
             snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
             snprintf(delim, delimTok.length - 1, "%s", delimTok.start + 1);
             
-            // Store as array (simplified: store in __result as concatenated string)
-            // For now, just print each token
             char* token = strtok(str, delim);
             int idx = 0;
             while (token != NULL) {
