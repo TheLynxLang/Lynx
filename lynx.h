@@ -90,8 +90,6 @@ int callFunction(const char* name);
 void load_lib(const char* lib_name);
 void unload_all_libs();
 
-void compile_to_exe(const char* input, const char* output, int standalone);
-
 void cleanup_all();
 
 #endif
