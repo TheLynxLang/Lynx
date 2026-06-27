@@ -8,13 +8,12 @@
 
 #pragma comment(lib, "urlmon.lib")
 
-#define LYNX_VERSION "v1.3.3"
+#define LYNX_VERSION "v1.3.4"
 
-// Access the global scanner defined in scanner.c
-extern Scanner scanner; 
+extern Scanner scanner;
 
 void show_help() {
-    printf("\n🐾 LYNX 1.3.3 COMMANDS:\n");
+    printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
     printf("\n  VARIABLES:\n");
     printf("  Set x = 10         - Create/Update variable\n");
     printf("  Set x = \"hello\"    - Create string variable\n");
@@ -41,19 +40,24 @@ void show_help() {
     printf("  ==, !=             - Equality\n");
     printf("  And, Or, Not       - Logic\n");
     
+    printf("\n  FILE I/O:\n");
+    printf("  KittyWriteFile \"path\" \"content\" - Write to file\n");
+    printf("  KittyReadFile \"path\"             - Read file\n");
+    printf("  Paw \"path\"                        - Create directory\n");
+    
     printf("\n  OTHER:\n");
     printf("  LoadLib \"name\"     - Load C DLL from ./lib/\n");
     printf("  Stalk_Pack \"file\"  - Run a .lnx script\n");
     printf("  Help               - Show this menu\n");
     printf("  Exit               - Close Lynx\n");
     printf("  --version          - Show version\n");
-    printf("  --update           - Fetch newest Lynx\n\n");
+    printf("  --update           - Fetch newest Lynx\n");
+    printf("  init               - Create new Lynx project\n\n");
 }
 
 void runFile(const char* path) {
     char cleanPath[MAX_PATH];
     
-    // Clean quotes from path
     if (path[0] == '"') {
         int len = strlen(path) - 2;
         strncpy(cleanPath, path + 1, len);
@@ -83,28 +87,23 @@ void runFile(const char* path) {
         buf[size] = '\0';
         fclose(file);
 
-        // Save current scanner state
-        Scanner previousScanner = scanner; 
-        
+        Scanner previousScanner = scanner;
         initScanner(buf);
         while (peekToken().type != TOKEN_EOF) {
-            parse_statement(); 
+            parse_statement();
         }
-
-        // Restore state
         scanner = previousScanner;
-
         free(buf);
     }
 }
 
 int main(int argc, char* argv[]) {
-    SetConsoleOutputCP(65001); // UTF-8 fix for the 🐾
+    SetConsoleOutputCP(65001);
 
     if (argc >= 2) {
         if (_stricmp(argv[1], "help") == 0 || _stricmp(argv[1], "--help") == 0) {
             show_help();
-        } 
+        }
         else if (_stricmp(argv[1], "--version") == 0) {
             printf("Lynx Engine %s\n", LYNX_VERSION);
         }
@@ -113,19 +112,21 @@ int main(int argc, char* argv[]) {
             char tempInstaller[MAX_PATH];
             sprintf(tempInstaller, "%s\\LynxInstaller.exe", getenv("TEMP"));
             const char* url = "https://github.com/justdev-chris/Lynx/releases/latest/download/LynxInstaller.exe";
-            
             if (S_OK == URLDownloadToFileA(NULL, url, tempInstaller, 0, NULL)) {
                 ShellExecuteA(NULL, "open", tempInstaller, NULL, NULL, SW_SHOWNORMAL);
-                exit(0); 
+                exit(0);
             } else {
                 printf("❌ Update failed.\n");
             }
         }
+        else if (_stricmp(argv[1], "init") == 0) {
+            runFile("scripts/init.lnx");
+            return 0;
+        }
         else {
             runFile(argv[1]);
         }
-        
-        // Clean up
+
         unload_all_libs();
         cleanup_all();
         return 0;
@@ -150,10 +151,9 @@ int main(int argc, char* argv[]) {
             parse_statement();
         }
     }
-    
-    // Clean up
+
     unload_all_libs();
     cleanup_all();
     printf("🐾 Goodbye!\n");
     return 0;
-}
+} 
