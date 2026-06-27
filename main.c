@@ -8,56 +8,25 @@
 
 #pragma comment(lib, "urlmon.lib")
 
-#define LYNX_VERSION "v1.3.4"
+#define LYNX_VERSION "v1.4.0"
 
 extern Scanner scanner;
 
 void show_help() {
     printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
-    printf("\n  VARIABLES:\n");
-    printf("  Set x = 10         - Create/Update variable\n");
-    printf("  Set x = \"hello\"    - Create string variable\n");
-    printf("  Roar x             - Print value\n");
-    printf("  Hunt               - Show Den contents\n");
-    printf("  Pounce x           - Delete variable x\n");
-    printf("  x++, x--           - Increment/Decrement\n");
-    
-    printf("\n  CONTROL FLOW:\n");
-    printf("  If x > 5 { ... }   - Conditional execution\n");
-    printf("  For i = 0 To 10 {} - Loop from 0 to 10\n");
-    printf("  While x > 0 { ... }- Loop while condition true\n");
-    printf("  Break              - Exit loop\n");
-    printf("  Continue           - Next iteration\n");
-    
-    printf("\n  FUNCTIONS:\n");
-    printf("  Func name(a, b) {} - Define function\n");
-    printf("  name(1, 2)         - Call function\n");
-    printf("  Return             - Exit function\n");
-    
-    printf("\n  OPERATORS:\n");
-    printf("  +, -, *, /, %%     - Arithmetic\n");
-    printf("  >, <, >=, <=       - Comparison\n");
-    printf("  ==, !=             - Equality\n");
-    printf("  And, Or, Not       - Logic\n");
-    
-    printf("\n  FILE I/O:\n");
-    printf("  KittyWriteFile \"path\" \"content\" - Write to file\n");
-    printf("  KittyReadFile \"path\"             - Read file\n");
-    printf("  Paw \"path\"                        - Create directory\n");
-    
-    printf("\n  OTHER:\n");
-    printf("  LoadLib \"name\"     - Load C DLL from ./lib/\n");
-    printf("  Stalk_Pack \"file\"  - Run a .lnx script\n");
-    printf("  Help               - Show this menu\n");
-    printf("  Exit               - Close Lynx\n");
+    printf("\n  init               - Create new Lynx project\n");
+    printf("  add <pkg>          - Add dependency\n");
+    printf("  build              - Compile project to .exe (dynamic)\n");
+    printf("  build --standalone - Compile project to standalone .exe\n");
+    printf("  run <file.lnx>     - Run script\n");
+    printf("  --compile-to-exe <in> <out> [--standalone]\n");
     printf("  --version          - Show version\n");
-    printf("  --update           - Fetch newest Lynx\n");
-    printf("  init               - Create new Lynx project\n\n");
+    printf("  --update           - Self-update\n");
+    printf("  help               - Show this menu\n\n");
 }
 
 void runFile(const char* path) {
     char cleanPath[MAX_PATH];
-    
     if (path[0] == '"') {
         int len = strlen(path) - 2;
         strncpy(cleanPath, path + 1, len);
@@ -74,7 +43,7 @@ void runFile(const char* path) {
     }
 
     if (!file) {
-        fprintf(stderr, "🐾 Lynx Error: Pack '%s' not found.\n", cleanPath);
+        fprintf(stderr, "🐾 Lynx Error: File '%s' not found.\n", cleanPath);
         return;
     }
 
@@ -94,6 +63,51 @@ void runFile(const char* path) {
         }
         scanner = previousScanner;
         free(buf);
+    }
+}
+
+// Compiler stub — will be replaced with real PE writer + x86_64 emitter
+void compile_to_exe(const char* input, const char* output, int standalone) {
+    printf("🐾 Compiling %s -> %s (standalone: %d)\n", input, output, standalone);
+    printf("⚠️  Full PE + x86_64 emitter coming soon. For now, copying stub.\n");
+
+    // Read input file
+    FILE* f = fopen(input, "rb");
+    if (!f) {
+        printf("❌ Input file not found: %s\n", input);
+        return;
+    }
+    fclose(f);
+
+    // Write minimal .exe stub (placeholder)
+    // In real implementation, this will contain PE header + x86_64 machine code
+    unsigned char stub[] = {
+        0x4D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00,
+        0x04, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
+        0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x0E, 0x1F, 0xBA, 0x0E, 0x00, 0xB4, 0x09, 0xCD,
+        0x21, 0xB8, 0x01, 0x4C, 0xCD, 0x21, 0x54, 0x68,
+        0x69, 0x73, 0x20, 0x70, 0x72, 0x6F, 0x67, 0x72,
+        0x61, 0x6D, 0x20, 0x63, 0x61, 0x6E, 0x6E, 0x6F,
+        0x74, 0x20, 0x62, 0x65, 0x20, 0x72, 0x75, 0x6E,
+        0x20, 0x69, 0x6E, 0x20, 0x44, 0x4F, 0x53, 0x20,
+        0x6D, 0x6F, 0x64, 0x65, 0x2E, 0x0D, 0x0D, 0x0A,
+        0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+    };
+
+    FILE* out = fopen(output, "wb");
+    if (out) {
+        fwrite(stub, 1, sizeof(stub), out);
+        fclose(out);
+        printf("✅ Written stub: %s\n", output);
+        printf("⚠️  Replace with real PE + x86_64 emitter later.\n");
+    } else {
+        printf("❌ Failed to write: %s\n", output);
     }
 }
 
@@ -121,6 +135,37 @@ int main(int argc, char* argv[]) {
         }
         else if (_stricmp(argv[1], "init") == 0) {
             runFile("scripts/init.lnx");
+            return 0;
+        }
+        else if (_stricmp(argv[1], "build") == 0) {
+            int standalone = 0;
+            if (argc >= 3 && _stricmp(argv[2], "--standalone") == 0) {
+                standalone = 1;
+            }
+            setVar("__flag", standalone ? 1.0 : 0.0);
+            runFile("scripts/build.lnx");
+            return 0;
+        }
+        else if (_stricmp(argv[1], "add") == 0) {
+            if (argc >= 3) {
+                // Pass package name to add.lnx via __pkg variable
+                setVarString("__pkg", argv[2]);
+                runFile("scripts/add.lnx");
+            } else {
+                printf("🐾 Usage: lynx add <package>\n");
+            }
+            return 0;
+        }
+        else if (_stricmp(argv[1], "--compile-to-exe") == 0) {
+            if (argc < 4) {
+                printf("Usage: lynx --compile-to-exe <input.lnx> <output.exe> [--standalone]\n");
+                return 1;
+            }
+            int standalone = 0;
+            if (argc >= 5 && _stricmp(argv[4], "--standalone") == 0) {
+                standalone = 1;
+            }
+            compile_to_exe(argv[2], argv[3], standalone);
             return 0;
         }
         else {
@@ -156,4 +201,4 @@ int main(int argc, char* argv[]) {
     cleanup_all();
     printf("🐾 Goodbye!\n");
     return 0;
-} 
+}
