@@ -66,49 +66,38 @@ void runFile(const char* path) {
     }
 }
 
-// Compiler stub — will be replaced with real PE writer + x86_64 emitter
 void compile_to_exe(const char* input, const char* output, int standalone) {
     printf("🐾 Compiling %s -> %s (standalone: %d)\n", input, output, standalone);
-    printf("⚠️  Full PE + x86_64 emitter coming soon. For now, copying stub.\n");
 
-    // Read input file
     FILE* f = fopen(input, "rb");
     if (!f) {
         printf("❌ Input file not found: %s\n", input);
         return;
     }
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    rewind(f);
+    char* src = malloc(size + 1);
+    fread(src, 1, size, f);
+    src[size] = '\0';
     fclose(f);
 
-    // Write minimal .exe stub (placeholder)
-    // In real implementation, this will contain PE header + x86_64 machine code
-    unsigned char stub[] = {
-        0x4D, 0x5A, 0x90, 0x00, 0x03, 0x00, 0x00, 0x00,
-        0x04, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
-        0xB8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x40, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-        0x0E, 0x1F, 0xBA, 0x0E, 0x00, 0xB4, 0x09, 0xCD,
-        0x21, 0xB8, 0x01, 0x4C, 0xCD, 0x21, 0x54, 0x68,
-        0x69, 0x73, 0x20, 0x70, 0x72, 0x6F, 0x67, 0x72,
-        0x61, 0x6D, 0x20, 0x63, 0x61, 0x6E, 0x6E, 0x6F,
-        0x74, 0x20, 0x62, 0x65, 0x20, 0x72, 0x75, 0x6E,
-        0x20, 0x69, 0x6E, 0x20, 0x44, 0x4F, 0x53, 0x20,
-        0x6D, 0x6F, 0x64, 0x65, 0x2E, 0x0D, 0x0D, 0x0A,
-        0x24, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    };
+    extern uint8_t* compile_to_machine(const char* source, size_t* out_size);
+    size_t code_size;
+    uint8_t* code = compile_to_machine(src, &code_size);
 
-    FILE* out = fopen(output, "wb");
-    if (out) {
-        fwrite(stub, 1, sizeof(stub), out);
-        fclose(out);
-        printf("✅ Written stub: %s\n", output);
-        printf("⚠️  Replace with real PE + x86_64 emitter later.\n");
-    } else {
-        printf("❌ Failed to write: %s\n", output);
+    if (!code) {
+        printf("❌ Compilation failed.\n");
+        free(src);
+        return;
     }
+
+    extern void write_pe(const char* output, uint8_t* code, size_t code_size, int standalone);
+    write_pe(output, code, code_size, standalone);
+
+    free(code);
+    free(src);
+    printf("✅ Compiled: %s\n", output);
 }
 
 int main(int argc, char* argv[]) {
@@ -148,7 +137,6 @@ int main(int argc, char* argv[]) {
         }
         else if (_stricmp(argv[1], "add") == 0) {
             if (argc >= 3) {
-                // Pass package name to add.lnx via __pkg variable
                 setVarString("__pkg", argv[2]);
                 runFile("scripts/add.lnx");
             } else {
