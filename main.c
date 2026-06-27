@@ -15,11 +15,9 @@ extern Scanner scanner;
 void show_help() {
     printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
     printf("\n  init               - Create new Lynx project\n");
-    printf("  add <pkg>          - Add dependency\n");
-    printf("  build              - Compile project to .exe (dynamic)\n");
-    printf("  build --standalone - Compile project to standalone .exe\n");
+    printf("  add <pkg>          - Add dependency to lynx.toml\n");
+    printf("  build              - Run src/main.lnx\n");
     printf("  run <file.lnx>     - Run script\n");
-    printf("  --compile-to-exe <in> <out> [--standalone]\n");
     printf("  --version          - Show version\n");
     printf("  --update           - Self-update\n");
     printf("  help               - Show this menu\n\n");
@@ -66,40 +64,6 @@ void runFile(const char* path) {
     }
 }
 
-void compile_to_exe(const char* input, const char* output, int standalone) {
-    printf("🐾 Compiling %s -> %s (standalone: %d)\n", input, output, standalone);
-
-    FILE* f = fopen(input, "rb");
-    if (!f) {
-        printf("❌ Input file not found: %s\n", input);
-        return;
-    }
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    rewind(f);
-    char* src = malloc(size + 1);
-    fread(src, 1, size, f);
-    src[size] = '\0';
-    fclose(f);
-
-    extern uint8_t* compile_to_machine(const char* source, size_t* out_size);
-    size_t code_size;
-    uint8_t* code = compile_to_machine(src, &code_size);
-
-    if (!code) {
-        printf("❌ Compilation failed.\n");
-        free(src);
-        return;
-    }
-
-    extern void write_pe(const char* output, uint8_t* code, size_t code_size, int standalone);
-    write_pe(output, code, code_size, standalone);
-
-    free(code);
-    free(src);
-    printf("✅ Compiled: %s\n", output);
-}
-
 int main(int argc, char* argv[]) {
     SetConsoleOutputCP(65001);
 
@@ -127,12 +91,7 @@ int main(int argc, char* argv[]) {
             return 0;
         }
         else if (_stricmp(argv[1], "build") == 0) {
-            int standalone = 0;
-            if (argc >= 3 && _stricmp(argv[2], "--standalone") == 0) {
-                standalone = 1;
-            }
-            setVar("__flag", standalone ? 1.0 : 0.0);
-            runFile("scripts/build.lnx");
+            runFile("src/main.lnx");
             return 0;
         }
         else if (_stricmp(argv[1], "add") == 0) {
@@ -142,18 +101,6 @@ int main(int argc, char* argv[]) {
             } else {
                 printf("🐾 Usage: lynx add <package>\n");
             }
-            return 0;
-        }
-        else if (_stricmp(argv[1], "--compile-to-exe") == 0) {
-            if (argc < 4) {
-                printf("Usage: lynx --compile-to-exe <input.lnx> <output.exe> [--standalone]\n");
-                return 1;
-            }
-            int standalone = 0;
-            if (argc >= 5 && _stricmp(argv[4], "--standalone") == 0) {
-                standalone = 1;
-            }
-            compile_to_exe(argv[2], argv[3], standalone);
             return 0;
         }
         else {
