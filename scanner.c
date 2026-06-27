@@ -59,6 +59,7 @@ static LynxTokenType checkKeyword() {
     if (len == 3 && strncmp(s, "And", 3) == 0) return TOKEN_AND;
     if (len == 2 && strncmp(s, "Or", 2) == 0) return TOKEN_OR;
     if (len == 3 && strncmp(s, "Not", 3) == 0) return TOKEN_NOT;
+    if (len == 3 && strncmp(s, "Run", 3) == 0) return TOKEN_RUN;
 
     // File I/O
     if (len == 15 && strncmp(s, "KittyWriteFile", 15) == 0) return TOKEN_KITTY_WRITE_FILE;
