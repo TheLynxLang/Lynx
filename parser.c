@@ -1,11 +1,47 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include "lynx.h"
 
 void parse_statement();
 double parse_expression();
 int parse_logic_expression();
+
+// ----- STRING HELPERS (used by parser) -----
+static char* str_trim(char* str) {
+    while (isspace((unsigned char)*str)) str++;
+    if (*str == 0) return str;
+    char* end = str + strlen(str) - 1;
+    while (end > str && isspace((unsigned char)*end)) end--;
+    end[1] = '\0';
+    return str;
+}
+
+static int str_contains(const char* haystack, const char* needle) {
+    return strstr(haystack, needle) != NULL;
+}
+
+static char* str_replace(const char* src, const char* old, const char* new) {
+    static char buffer[4096];
+    char* p = buffer;
+    const char* q = src;
+    size_t old_len = strlen(old);
+    size_t new_len = strlen(new);
+    while (*q) {
+        if (strncmp(q, old, old_len) == 0) {
+            strcpy(p, new);
+            p += new_len;
+            q += old_len;
+        } else {
+            *p++ = *q++;
+        }
+    }
+    *p = '\0';
+    return buffer;
+}
+
+// ----- PARSING -----
 
 double parse_primary() {
     Token t = scanToken();
@@ -255,7 +291,7 @@ void parse_statement() {
         return;
     }
 
-    // --- File I/O ---
+    // File I/O
     if (t.type == TOKEN_KITTY_WRITE_FILE) {
         Token path = scanToken();
         Token content = scanToken();
@@ -327,7 +363,79 @@ void parse_statement() {
         return;
     }
 
-    // --- Control Flow ---
+    // ----- STRING FUNCTIONS -----
+    if (t.type == TOKEN_STRING_SPLIT) {
+        Token strTok = scanToken();
+        Token delimTok = scanToken();
+        if (strTok.type == TOKEN_STRING && delimTok.type == TOKEN_STRING) {
+            char str[4096];
+            char delim[256];
+            snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
+            snprintf(delim, delimTok.length - 1, "%s", delimTok.start + 1);
+            
+            // Store as array (simplified: store in __result as concatenated string)
+            // For now, just print each token
+            char* token = strtok(str, delim);
+            int idx = 0;
+            while (token != NULL) {
+                printf("[%d] %s\n", idx++, token);
+                token = strtok(NULL, delim);
+            }
+            setVar("__result", (double)idx);
+        }
+        return;
+    }
+
+    if (t.type == TOKEN_STRING_CONTAINS) {
+        Token hayTok = scanToken();
+        Token needleTok = scanToken();
+        if (hayTok.type == TOKEN_STRING && needleTok.type == TOKEN_STRING) {
+            char hay[4096];
+            char needle[256];
+            snprintf(hay, hayTok.length - 1, "%s", hayTok.start + 1);
+            snprintf(needle, needleTok.length - 1, "%s", needleTok.start + 1);
+            setVar("__result", str_contains(hay, needle) ? 1.0 : 0.0);
+        }
+        return;
+    }
+
+    if (t.type == TOKEN_STRING_REPLACE) {
+        Token srcTok = scanToken();
+        Token oldTok = scanToken();
+        Token newTok = scanToken();
+        if (srcTok.type == TOKEN_STRING && oldTok.type == TOKEN_STRING && newTok.type == TOKEN_STRING) {
+            char src[4096], old[256], new[256];
+            snprintf(src, srcTok.length - 1, "%s", srcTok.start + 1);
+            snprintf(old, oldTok.length - 1, "%s", oldTok.start + 1);
+            snprintf(new, newTok.length - 1, "%s", newTok.start + 1);
+            char* result = str_replace(src, old, new);
+            setVarString("__result", result);
+        }
+        return;
+    }
+
+    if (t.type == TOKEN_TRIM) {
+        Token strTok = scanToken();
+        if (strTok.type == TOKEN_STRING) {
+            char str[4096];
+            snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
+            char* trimmed = str_trim(str);
+            setVarString("__result", trimmed);
+        }
+        return;
+    }
+
+    if (t.type == TOKEN_LEN) {
+        Token strTok = scanToken();
+        if (strTok.type == TOKEN_STRING) {
+            char str[4096];
+            snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
+            setVar("__result", (double)strlen(str));
+        }
+        return;
+    }
+
+    // Control flow
     if (t.type == TOKEN_IF) {
         int cond = parse_logic_expression();
         if (cond) {
