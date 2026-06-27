@@ -59,6 +59,9 @@ static LynxTokenType checkKeyword() {
     if (len == 16 && strncmp(s, "KittyRemoveFile", 16) == 0) return TOKEN_KITTY_REMOVE_FILE;
     if (len == 14 && strncmp(s, "KittyReadDir", 14) == 0) return TOKEN_KITTY_READ_DIR;
 
+    // Package manager
+    if (len == 9 && strncmp(s, "KittyPort", 9) == 0) return TOKEN_KITTY_PORT;
+
     // String functions
     if (len == 11 && strncmp(s, "StringSplit", 11) == 0) return TOKEN_STRING_SPLIT;
     if (len == 14 && strncmp(s, "StringContains", 14) == 0) return TOKEN_STRING_CONTAINS;
