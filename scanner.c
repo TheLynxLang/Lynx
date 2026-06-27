@@ -12,21 +12,10 @@ void initScanner(const char* source) {
     scanner.line = 1;
 }
 
-static bool isAtEnd() {
-    return *scanner.current == '\0';
-}
-
-static char advance() {
-    return *scanner.current++;
-}
-
-static char peek() {
-    return *scanner.current;
-}
-
-static char peekNext() {
-    return scanner.current[1];
-}
+static bool isAtEnd() { return *scanner.current == '\0'; }
+static char advance() { return *scanner.current++; }
+static char peek() { return *scanner.current; }
+static char peekNext() { return scanner.current[1]; }
 
 static Token makeToken(LynxTokenType type) {
     Token token;
@@ -61,7 +50,6 @@ static LynxTokenType checkKeyword() {
     if (len == 3 && strncmp(s, "Not", 3) == 0) return TOKEN_NOT;
     if (len == 3 && strncmp(s, "Run", 3) == 0) return TOKEN_RUN;
 
-    // File I/O
     if (len == 15 && strncmp(s, "KittyWriteFile", 15) == 0) return TOKEN_KITTY_WRITE_FILE;
     if (len == 14 && strncmp(s, "KittyReadFile", 14) == 0) return TOKEN_KITTY_READ_FILE;
     if (len == 3 && strncmp(s, "Paw", 3) == 0) return TOKEN_PAW;
@@ -122,16 +110,10 @@ Token scanToken() {
 
     switch (c) {
         case '+':
-            if (peek() == '+') {
-                advance();
-                return makeToken(TOKEN_INCREMENT);
-            }
+            if (peek() == '+') { advance(); return makeToken(TOKEN_INCREMENT); }
             return makeToken(TOKEN_PLUS);
         case '-':
-            if (peek() == '-') {
-                advance();
-                return makeToken(TOKEN_DECREMENT);
-            }
+            if (peek() == '-') { advance(); return makeToken(TOKEN_DECREMENT); }
             return makeToken(TOKEN_MINUS);
         case '*': return makeToken(TOKEN_STAR);
         case '/': return makeToken(TOKEN_SLASH);
@@ -145,28 +127,16 @@ Token scanToken() {
         case ',': return makeToken(TOKEN_COMMA);
         case ':': return makeToken(TOKEN_COLON);
         case '=':
-            if (peek() == '=') {
-                advance();
-                return makeToken(TOKEN_EQ);
-            }
+            if (peek() == '=') { advance(); return makeToken(TOKEN_EQ); }
             return makeToken(TOKEN_EQUAL);
         case '!':
-            if (peek() == '=') {
-                advance();
-                return makeToken(TOKEN_NE);
-            }
+            if (peek() == '=') { advance(); return makeToken(TOKEN_NE); }
             return makeToken(TOKEN_NOT);
         case '>':
-            if (peek() == '=') {
-                advance();
-                return makeToken(TOKEN_GE);
-            }
+            if (peek() == '=') { advance(); return makeToken(TOKEN_GE); }
             return makeToken(TOKEN_GT);
         case '<':
-            if (peek() == '=') {
-                advance();
-                return makeToken(TOKEN_LE);
-            }
+            if (peek() == '=') { advance(); return makeToken(TOKEN_LE); }
             return makeToken(TOKEN_LT);
         case '"': {
             while (peek() != '"' && !isAtEnd()) {
