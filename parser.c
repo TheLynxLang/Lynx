@@ -378,6 +378,22 @@ void parse_statement() {
         return;
     }
 
+    if (t.type == TOKEN_KITTY_FILE_EXISTS) {
+        Token path = scanToken();
+        if (path.type == TOKEN_STRING) {
+            char p[256];
+            snprintf(p, path.length - 1, "%s", path.start + 1);
+            FILE* f = fopen(p, "r");
+            if (f) {
+                fclose(f);
+                setVar("__result", 1.0);
+            } else {
+                setVar("__result", 0.0);
+            }
+        }
+        return;
+    }
+
     // Control flow
     if (t.type == TOKEN_IF) {
         int condition = parse_logic_expression();
