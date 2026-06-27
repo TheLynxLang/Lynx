@@ -50,6 +50,7 @@ static LynxTokenType checkKeyword() {
     if (len == 3 && strncmp(s, "Not", 3) == 0) return TOKEN_NOT;
     if (len == 3 && strncmp(s, "Run", 3) == 0) return TOKEN_RUN;
 
+    // File I/O
     if (len == 15 && strncmp(s, "KittyWriteFile", 15) == 0) return TOKEN_KITTY_WRITE_FILE;
     if (len == 14 && strncmp(s, "KittyReadFile", 14) == 0) return TOKEN_KITTY_READ_FILE;
     if (len == 3 && strncmp(s, "Paw", 3) == 0) return TOKEN_PAW;
@@ -57,6 +58,13 @@ static LynxTokenType checkKeyword() {
     if (len == 15 && strncmp(s, "KittyListFiles", 15) == 0) return TOKEN_KITTY_LIST_FILES;
     if (len == 16 && strncmp(s, "KittyRemoveFile", 16) == 0) return TOKEN_KITTY_REMOVE_FILE;
     if (len == 14 && strncmp(s, "KittyReadDir", 14) == 0) return TOKEN_KITTY_READ_DIR;
+
+    // String functions
+    if (len == 11 && strncmp(s, "StringSplit", 11) == 0) return TOKEN_STRING_SPLIT;
+    if (len == 14 && strncmp(s, "StringContains", 14) == 0) return TOKEN_STRING_CONTAINS;
+    if (len == 13 && strncmp(s, "StringReplace", 13) == 0) return TOKEN_STRING_REPLACE;
+    if (len == 4 && strncmp(s, "Trim", 4) == 0) return TOKEN_TRIM;
+    if (len == 3 && strncmp(s, "Len", 3) == 0) return TOKEN_LEN;
 
     return TOKEN_IDENTIFIER;
 }
