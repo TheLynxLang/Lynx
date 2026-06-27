@@ -1,4 +1,71 @@
-Set pi = 3.14159265
-Set gravity = 9.806
-Set e = 2.71828
-Set phi = 1.61803
+# ============================================
+# math.lnx – Math utilities for Lynx
+# ============================================
+
+Func abs(x) {
+    If x < 0 {
+        Return -x
+    }
+    Return x
+}
+
+Func min(a, b) {
+    If a < b {
+        Return a
+    }
+    Return b
+}
+
+Func max(a, b) {
+    If a > b {
+        Return a
+    }
+    Return b
+}
+
+Func clamp(x, lo, hi) {
+    If x < lo {
+        Return lo
+    }
+    If x > hi {
+        Return hi
+    }
+    Return x
+}
+
+Func pow(base, exp) {
+    Set result = 1
+    Set i = 0
+    While i < exp {
+        Set result = result * base
+        Set i = i + 1
+    }
+    Return result
+}
+
+Func factorial(n) {
+    Set result = 1
+    Set i = 1
+    While i <= n {
+        Set result = result * i
+        Set i = i + 1
+    }
+    Return result
+}
+
+Func is_even(n) {
+    Return n % 2 == 0
+}
+
+Func is_odd(n) {
+    Return n % 2 != 0
+}
+
+Func lerp(a, b, t) {
+    Return a + (b - a) * t
+}
+
+Func map_range(value, from_lo, from_hi, to_lo, to_hi) {
+    Set t = (value - from_lo) / (from_hi - from_lo)
+    Return lerp(to_lo, to_hi, t)
+}
