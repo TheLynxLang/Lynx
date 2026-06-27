@@ -1,12 +1,12 @@
 [Setup]
 AppName=Lynx
-AppVersion=1.3.3
+AppVersion=1.4.0
 AppPublisher=justdev-chris
 AppPublisherURL=https://github.com/justdev-chris/Lynx
 DefaultDirName={pf}\Lynx
 DefaultGroupName=Lynx
 OutputDir=installer
-OutputBaseFilename=Lynx-1.3.3-installer
+OutputBaseFilename=Lynx-1.4.0-installer
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -15,6 +15,10 @@ ArchitecturesInstallIn64BitMode=x64
 [Files]
 Source: "..\lynx.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\std\*.lnx"; DestDir: "{app}\std"; Flags: ignoreversion
+Source: "..\scripts\*.lnx"; DestDir: "{app}\scripts"; Flags: ignoreversion
+
+[Dirs]
+Name: "{app}\lib"
 
 [Icons]
 Name: "{group}\Lynx"; Filename: "{app}\lynx.exe"
