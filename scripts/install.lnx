@@ -1,0 +1,46 @@
+# install.lnx – Fully dynamic dependency installer
+Roar "🐾 Installing dependencies..."
+
+Paw "libs"
+
+# Read lynx.toml
+KittyReadFile "lynx.toml"
+Set content = KittyReadFile("lynx.toml")
+
+# Parse dependencies (requires StringSplit, StringContains, Trim, StringReplace)
+Set lines = StringSplit(content, "\n")
+Set in_deps = 0
+
+For line in lines {
+    If StringContains(line, "[dependencies]") {
+        in_deps = 1
+        Continue
+    }
+    
+    If in_deps == 1 {
+        If line == "" { Continue }
+        If StringContains(line, "[") {
+            Break
+        }
+        
+        Set parts = StringSplit(line, "=")
+        If Len(parts) >= 2 {
+            Set pkg = Trim(parts[0])
+            Set version = Trim(parts[1])
+            version = StringReplace(version, "\"", "")
+            
+            Roar "📦 Installing " + pkg + " (" + version + ")"
+            
+            Set url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/" + pkg + "/" + version + "/package.tar.gz"
+            Set dest = "libs/" + pkg + ".tar.gz"
+            
+            Run "curl -L -o " + dest + " " + url
+            Run "tar -xzf " + dest + " -C libs/"
+            Run "del " + dest
+            
+            Roar "✅ Installed " + pkg
+        }
+    }
+}
+
+Roar "✅ All dependencies installed."
