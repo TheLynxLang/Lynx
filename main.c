@@ -16,6 +16,8 @@ void show_help() {
     printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
     printf("\n  init               - Create new Lynx project\n");
     printf("  add <pkg>          - Add dependency to lynx.toml\n");
+    printf("  install            - Install all dependencies\n");
+    printf("  publish            - Pack project for registry\n");
     printf("  build              - Run src/main.lnx\n");
     printf("  run <file.lnx>     - Run script\n");
     printf("  --version          - Show version\n");
@@ -92,6 +94,14 @@ int main(int argc, char* argv[]) {
         }
         else if (_stricmp(argv[1], "build") == 0) {
             runFile("src/main.lnx");
+            return 0;
+        }
+        else if (_stricmp(argv[1], "install") == 0) {
+            runFile("scripts/install.lnx");
+            return 0;
+        }
+        else if (_stricmp(argv[1], "publish") == 0) {
+            runFile("scripts/publish.lnx");
             return 0;
         }
         else if (_stricmp(argv[1], "add") == 0) {
