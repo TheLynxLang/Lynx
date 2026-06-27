@@ -1,0 +1,13 @@
+Roar "🐾 Building Lynx project..."
+
+Set project_name = "my_project"
+
+If __flag == 1 {
+    Roar "🔒 Standalone build"
+    Run "lynx --compile-to-exe src/main.lnx bin/" + project_name + ".exe --standalone"
+} Else {
+    Roar "🔗 Dynamic build"
+    Run "lynx --compile-to-exe src/main.lnx bin/" + project_name + ".exe"
+}
+
+Roar "✅ Done"
