@@ -1,0 +1,44 @@
+# publish.lnx – Fully dynamic packager
+Roar "🐾 Packaging project..."
+
+# Read lynx.toml
+KittyReadFile "lynx.toml"
+Set content = KittyReadFile("lynx.toml")
+
+# Extract name + version
+Set lines = StringSplit(content, "\n")
+Set name = ""
+Set version = ""
+
+For line in lines {
+    If StringContains(line, "name = ") {
+        Set parts = StringSplit(line, "=")
+        name = Trim(parts[1])
+        name = StringReplace(name, "\"", "")
+    }
+    If StringContains(line, "version = ") {
+        Set parts = StringSplit(line, "=")
+        version = Trim(parts[1])
+        version = StringReplace(version, "\"", "")
+    }
+}
+
+# Error if missing
+If name == "" {
+    Roar "❌ No name found in lynx.toml"
+    Exit
+}
+If version == "" {
+    Roar "❌ No version found in lynx.toml"
+    Exit
+}
+
+# Pack
+Set tarball = name + "-" + version + ".tar.gz"
+Run "tar -czf " + tarball + " src/ lynx.toml"
+
+Roar "✅ Created " + tarball
+Roar "📤 Push to: https://github.com/justdev-chris/lynx-registry"
+Roar "   mkdir -p " + name + "/" + version
+Roar "   cp " + tarball + " " + name + "/" + version + "/"
+Roar "   git add . && git commit -m 'Add " + name + " " + version + "' && git push"
