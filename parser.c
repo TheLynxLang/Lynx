@@ -271,7 +271,13 @@ void parse_statement() {
         } else if (val.type == TOKEN_IDENTIFIER) {
             char name[64];
             snprintf(name, val.length + 1, "%s", val.start);
-            printf("%.5f\n", getVar(name));
+            double num = getVar(name);
+            char* str = getVarString(name);
+            if (str != NULL && strlen(str) > 0) {
+                printf("%s\n", str);
+            } else {
+                printf("%.5f\n", num);
+            }
         } else if (val.type == TOKEN_NUMBER) {
             printf("%.5f\n", atof(val.start));
         }
@@ -287,8 +293,17 @@ void parse_statement() {
 
         Token op = scanToken();
         if (op.type == TOKEN_EQUAL) {
-            double finalVal = parse_expression();
-            setVar(varName, finalVal);
+            // Check if next token is a string
+            Token next = peekToken();
+            if (next.type == TOKEN_STRING) {
+                scanToken(); // consume string
+                char strVal[256];
+                snprintf(strVal, next.length - 1, "%s", next.start + 1);
+                setVarString(varName, strVal);
+            } else {
+                double finalVal = parse_expression();
+                setVar(varName, finalVal);
+            }
         }
         else if (op.type == TOKEN_INCREMENT) {
             setVar(varName, getVar(varName) + 1);
@@ -357,6 +372,8 @@ void parse_statement() {
                 fread(buf, 1, size, f);
                 buf[size] = '\0';
                 fclose(f);
+                // Store in a special variable for now
+                setVarString("__file_content", buf);
                 printf("%s\n", buf);
                 free(buf);
             }
@@ -390,6 +407,44 @@ void parse_statement() {
             } else {
                 setVar("__result", 0.0);
             }
+        }
+        return;
+    }
+
+    if (t.type == TOKEN_KITTY_LIST_FILES) {
+        Token path = scanToken();
+        if (path.type == TOKEN_STRING) {
+            char p[256];
+            snprintf(p, path.length - 1, "%s", path.start + 1);
+            #ifdef _WIN32
+                char cmd[512];
+                sprintf(cmd, "dir /b \"%s\"", p);
+                system(cmd);
+            #else
+                char cmd[512];
+                sprintf(cmd, "ls -1 \"%s\"", p);
+                system(cmd);
+            #endif
+        }
+        return;
+    }
+
+    if (t.type == TOKEN_KITTY_REMOVE_FILE) {
+        Token path = scanToken();
+        if (path.type == TOKEN_STRING) {
+            char p[256];
+            snprintf(p, path.length - 1, "%s", path.start + 1);
+            remove(p);
+        }
+        return;
+    }
+
+    if (t.type == TOKEN_RUN) {
+        Token cmd = scanToken();
+        if (cmd.type == TOKEN_STRING) {
+            char c[512];
+            snprintf(c, cmd.length - 1, "%s", cmd.start + 1);
+            system(c);
         }
         return;
     }
