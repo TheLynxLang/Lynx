@@ -1,8 +1,17 @@
+# add.lnx – Lynx package adder (no duplicates)
+
 Roar "🐾 Adding package: " + __pkg
 
+# Read current lynx.toml
 KittyReadFile "lynx.toml"
 Set content = KittyReadFile("lynx.toml")
-Set content = content + "\n" + __pkg + " = \"latest\"\n"
-KittyWriteFile "lynx.toml" content
 
-Roar "✅ Added " + __pkg
+# Check if package already exists
+If StringContains(content, __pkg + " = ") {
+    Roar "⚠️ Package already exists: " + __pkg
+} Else {
+    # Append to [dependencies]
+    Set content = content + "\n" + __pkg + " = \"latest\"\n"
+    KittyWriteFile "lynx.toml" content
+    Roar "✅ Added " + __pkg
+}
