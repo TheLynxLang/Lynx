@@ -1,0 +1,8 @@
+Roar "🐾 Adding package: " + __pkg
+
+KittyReadFile "lynx.toml"
+Set content = KittyReadFile("lynx.toml")
+Set content = content + "\n" + __pkg + " = \"latest\"\n"
+KittyWriteFile "lynx.toml" content
+
+Roar "✅ Added " + __pkg
