@@ -8,25 +8,34 @@ typedef enum {
     // Commands
     TOKEN_SET, TOKEN_ROAR, TOKEN_HUNT, TOKEN_STALK_PACK, TOKEN_HELP,
     TOKEN_POUNCE, TOKEN_IF, TOKEN_ELSE, TOKEN_LOAD_LIB,
-    
-    // New: Functions and Loops
+
+    // Functions and Loops
     TOKEN_FUNC, TOKEN_RETURN, TOKEN_FOR, TOKEN_WHILE, TOKEN_BREAK, TOKEN_CONTINUE,
-    
-    // New: Logic and Array
+
+    // Logic and Array
     TOKEN_AND, TOKEN_OR, TOKEN_NOT, TOKEN_LBRACKET, TOKEN_RBRACKET,
-    
+
+    // File I/O (Kitty commands + Paw)
+    TOKEN_KITTY_WRITE_FILE,
+    TOKEN_KITTY_READ_FILE,
+    TOKEN_PAW,
+    TOKEN_KITTY_FILE_EXISTS,
+    TOKEN_KITTY_LIST_FILES,
+    TOKEN_KITTY_REMOVE_FILE,
+    TOKEN_KITTY_READ_DIR,
+
     // Identifiers and Values
     TOKEN_IDENTIFIER, TOKEN_STRING, TOKEN_NUMBER,
-    
+
     // Operators
     TOKEN_EQUAL, TOKEN_PLUS, TOKEN_MINUS, TOKEN_STAR, TOKEN_SLASH, TOKEN_MODULO,
     TOKEN_INCREMENT, TOKEN_DECREMENT,
     TOKEN_EQ, TOKEN_NE, TOKEN_GT, TOKEN_LT, TOKEN_GE, TOKEN_LE,
-    
+
     // Delimiters
     TOKEN_LBRACE, TOKEN_RBRACE, TOKEN_LPAREN, TOKEN_RPAREN,
     TOKEN_COMMA, TOKEN_COLON,
-    
+
     // End
     TOKEN_EOF, TOKEN_ERROR
 } LynxTokenType;
@@ -46,7 +55,7 @@ typedef struct {
     int line;
 } Scanner;
 
-// Variable Type - now supports strings and numbers
+// Variable Type
 typedef enum {
     VAR_NUMBER,
     VAR_STRING,
