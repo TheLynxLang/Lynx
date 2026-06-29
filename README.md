@@ -6,10 +6,16 @@ Lynx is a lightweight, animal-themed scripting language with a built-in package 
 
 ## 📦 Install
 
+Download the latest `LynxInstaller.exe` from the [releases page](https://github.com/justdev-chris/Lynx/releases).
+
+Or
+
+### NOT RECOMMEMDED
 Download the latest `lynx.exe` from the [releases page](https://github.com/justdev-chris/Lynx/releases).
 
 Add it to your `PATH` or run it from its folder.
 
+*ANY OTHER FILES WILL NOT BE AUTOMATICALLY DOWNLOADED.*
 ---
 
 ## 🚀 Quick Start
