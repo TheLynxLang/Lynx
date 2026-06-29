@@ -2,6 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <direct.h>     
+#include <sys/stat.h> 
 #include "lynx.h"
 
 void parse_statement();
