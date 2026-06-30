@@ -103,6 +103,10 @@ extern char* lynx_error;
 void clearError();
 void setError(const char* msg);
 
+// KittyPort cache
+extern char* loaded_packages[64];
+extern int loaded_pkg_count;
+
 // Scanner Functions
 void initScanner(const char* source);
 Token scanToken();
