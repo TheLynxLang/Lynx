@@ -2,15 +2,34 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <direct.h>     
-#include <sys/stat.h> 
 #include "lynx.h"
 
+// ─── ERROR HANDLING ──────────────────────────────────────────────
+char* lynx_error = NULL;
+
+void clearError() {
+    if (lynx_error) {
+        free(lynx_error);
+        lynx_error = NULL;
+    }
+}
+
+void setError(const char* msg) {
+    clearError();
+    lynx_error = malloc(strlen(msg) + 1);
+    if (lynx_error) strcpy(lynx_error, msg);
+}
+
+// ─── KITTYPORT CACHE ─────────────────────────────────────────────
+char* loaded_packages[64];
+int loaded_pkg_count = 0;
+
+// ─── FORWARD DECLARATIONS ────────────────────────────────────────
 void parse_statement();
 double parse_expression();
 int parse_logic_expression();
 
-// ----- STRING HELPERS (used by parser) -----
+// ─── STRING HELPERS ──────────────────────────────────────────────
 static char* str_trim(char* str) {
     while (isspace((unsigned char)*str)) str++;
     if (*str == 0) return str;
@@ -43,7 +62,7 @@ static char* str_replace(const char* src, const char* old, const char* new) {
     return buffer;
 }
 
-// ----- PARSING -----
+// ─── PARSING ──────────────────────────────────────────────────────
 
 double parse_primary() {
     Token t = scanToken();
@@ -80,8 +99,20 @@ double parse_term() {
         double right = parse_primary();
         switch (op.type) {
             case TOKEN_STAR: value *= right; break;
-            case TOKEN_SLASH: if (right) value /= right; else printf("🐾 Div by zero\n"); break;
-            case TOKEN_MODULO: if (right) value = (double)((int)value % (int)right); break;
+            case TOKEN_SLASH:
+                if (right == 0) {
+                    setError("Division by zero");
+                    return 0;
+                }
+                value /= right;
+                break;
+            case TOKEN_MODULO:
+                if (right == 0) {
+                    setError("Modulo by zero");
+                    return 0;
+                }
+                value = (double)((int)value % (int)right);
+                break;
             default: break;
         }
         op = peekToken();
@@ -232,7 +263,15 @@ void parse_statement() {
             snprintf(name, val.length + 1, "%s", val.start);
             char* s = getVarString(name);
             if (s && strlen(s) > 0) printf("%s\n", s);
-            else printf("%.5f\n", getVar(name));
+            else {
+                double num = getVar(name);
+                if (lynx_error) {
+                    printf("%s\n", lynx_error);
+                    clearError();
+                } else {
+                    printf("%.5f\n", num);
+                }
+            }
         } else if (val.type == TOKEN_NUMBER) {
             printf("%.5f\n", atof(val.start));
         }
@@ -253,6 +292,11 @@ void parse_statement() {
                 setVarString(varName, s);
             } else {
                 double val = parse_expression();
+                if (lynx_error) {
+                    printf("%s\n", lynx_error);
+                    clearError();
+                    return;
+                }
                 setVar(varName, val);
             }
         } else if (op.type == TOKEN_INCREMENT) {
@@ -269,6 +313,10 @@ void parse_statement() {
             char path[256];
             snprintf(path, pathToken.length - 1, "%s", pathToken.start + 1);
             runFile(path);
+            if (lynx_error) {
+                printf("%s\n", lynx_error);
+                clearError();
+            }
         }
         return;
     }
@@ -279,6 +327,10 @@ void parse_statement() {
             char name[64];
             snprintf(name, nameToken.length + 1, "%s", nameToken.start);
             pounce(name);
+            if (lynx_error) {
+                printf("%s\n", lynx_error);
+                clearError();
+            }
         }
         return;
     }
@@ -293,28 +345,68 @@ void parse_statement() {
         return;
     }
 
-    // ----- KITTY PORT (Package Import) -----
+    // ─── KITTY PORT ──────────────────────────────────────────────
     if (t.type == TOKEN_KITTY_PORT) {
         Token nameToken = scanToken();
         if (nameToken.type == TOKEN_STRING) {
             char name[64];
-            snprintf(name, nameToken.length - 1, "%s", nameToken.start + 1);
-            char path[256];
-            snprintf(path, sizeof(path), "libs/%s/main.lnx", name);
-            
-            // Check if file exists
-            FILE* f = fopen(path, "r");
+            snprintf(name, sizeof(name), "%s", nameToken.start + 1);
+            name[nameToken.length - 2] = '\0'; // remove quotes
+
+            // 1. Try .lnx (scoped, cached)
+            char lnxPath[256];
+            snprintf(lnxPath, sizeof(lnxPath), "libs/%s/main.lnx", name);
+
+            // Check cache first
+            int alreadyLoaded = 0;
+            for (int i = 0; i < loaded_pkg_count; i++) {
+                if (strcmp(loaded_packages[i], name) == 0) { alreadyLoaded = 1; break; }
+            }
+
+            FILE* f = fopen(lnxPath, "r");
             if (f) {
                 fclose(f);
-                runFile(path);
-            } else {
-                printf("🐾 KittyPort: Package '%s' not found in libs/\n", name);
+                if (alreadyLoaded) return; // already loaded, skip
+
+                // Save current scope
+                extern Variable den[];
+                extern int varCount;
+                Variable savedDen[100];
+                int savedCount = varCount;
+                for (int i = 0; i < varCount; i++) savedDen[i] = den[i];
+
+                runFile(lnxPath);
+
+                // Restore scope
+                for (int i = 0; i < varCount; i++) {
+                    if (den[i].strValue) free(den[i].strValue);
+                }
+                for (int i = 0; i < savedCount; i++) den[i] = savedDen[i];
+                varCount = savedCount;
+
+                // Cache
+                loaded_packages[loaded_pkg_count++] = strdup(name);
+                return;
             }
+
+            // 2. If not .lnx, try .dll (no scoping, no caching)
+            char dllPath[256];
+            snprintf(dllPath, sizeof(dllPath), "lib/%s.dll", name);
+            f = fopen(dllPath, "r");
+            if (f) {
+                fclose(f);
+                load_lib(name);
+                return;
+            }
+
+            setError("KittyPort: package not found");
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
 
-    // File I/O
+    // ─── FILE I/O ─────────────────────────────────────────────────
     if (t.type == TOKEN_KITTY_WRITE_FILE) {
         Token path = scanToken();
         Token content = scanToken();
@@ -324,6 +416,7 @@ void parse_statement() {
             snprintf(c, content.length - 1, "%s", content.start + 1);
             FILE* f = fopen(p, "w");
             if (f) { fwrite(c, 1, strlen(c), f); fclose(f); }
+            else { setError("Could not write file"); printf("%s\n", lynx_error); clearError(); }
         }
         return;
     }
@@ -345,6 +438,10 @@ void parse_statement() {
                 setVarString("__file_content", buf);
                 printf("%s\n", buf);
                 free(buf);
+            } else {
+                setError("File not found");
+                printf("%s\n", lynx_error);
+                clearError();
             }
         }
         return;
@@ -356,9 +453,17 @@ void parse_statement() {
             char p[256];
             snprintf(p, path.length - 1, "%s", path.start + 1);
             #ifdef _WIN32
-                _mkdir(p);
+                if (_mkdir(p) != 0) {
+                    setError("Could not create directory");
+                    printf("%s\n", lynx_error);
+                    clearError();
+                }
             #else
-                mkdir(p, 0777);
+                if (mkdir(p, 0777) != 0) {
+                    setError("Could not create directory");
+                    printf("%s\n", lynx_error);
+                    clearError();
+                }
             #endif
         }
         return;
@@ -376,17 +481,47 @@ void parse_statement() {
         return;
     }
 
+    if (t.type == TOKEN_KITTY_REMOVE_FILE) {
+        Token path = scanToken();
+        if (path.type == TOKEN_STRING) {
+            char p[256];
+            snprintf(p, path.length - 1, "%s", path.start + 1);
+            if (remove(p) != 0) {
+                setError("Could not remove file");
+                printf("%s\n", lynx_error);
+                clearError();
+            }
+        }
+        return;
+    }
+
     if (t.type == TOKEN_RUN) {
         Token cmd = scanToken();
         if (cmd.type == TOKEN_STRING) {
             char c[512];
             snprintf(c, cmd.length - 1, "%s", cmd.start + 1);
-            system(c);
+            int result = system(c);
+            if (result != 0) {
+                setError("Command failed");
+                printf("%s\n", lynx_error);
+                clearError();
+            }
         }
         return;
     }
 
-    // ----- STRING FUNCTIONS -----
+    // ─── ERROR ────────────────────────────────────────────────────
+    if (t.type == TOKEN_GET_ERROR) {
+        if (lynx_error) {
+            printf("%s\n", lynx_error);
+            clearError();
+        } else {
+            printf("OK\n");
+        }
+        return;
+    }
+
+    // ─── STRING FUNCTIONS ─────────────────────────────────────────
     if (t.type == TOKEN_STRING_SPLIT) {
         Token strTok = scanToken();
         Token delimTok = scanToken();
@@ -395,7 +530,6 @@ void parse_statement() {
             char delim[256];
             snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
             snprintf(delim, delimTok.length - 1, "%s", delimTok.start + 1);
-            
             char* token = strtok(str, delim);
             int idx = 0;
             while (token != NULL) {
@@ -456,7 +590,7 @@ void parse_statement() {
         return;
     }
 
-    // Control flow
+    // ─── CONTROL FLOW ─────────────────────────────────────────────
     if (t.type == TOKEN_IF) {
         int cond = parse_logic_expression();
         if (cond) {
