@@ -63,9 +63,9 @@ static LynxTokenType checkKeyword() {
     if (len == 9 && strncmp(s, "KittyPort", 9) == 0) return TOKEN_KITTY_PORT;
 
     // String functions
-    if (len == 11 && strncmp(s, "StringSplit", 11) == 0) return TOKEN_STRING_SPLIT;
-    if (len == 14 && strncmp(s, "StringContains", 14) == 0) return TOKEN_STRING_CONTAINS;
-    if (len == 13 && strncmp(s, "StringReplace", 13) == 0) return TOKEN_STRING_REPLACE;
+    if (len == 11 && strncmp(s, "KittySplitString", 11) == 0) return TOKEN_STRING_SPLIT;
+    if (len == 14 && strncmp(s, "KittyCheckIfStringContains", 14) == 0) return TOKEN_STRING_CONTAINS;
+    if (len == 13 && strncmp(s, "KittyReplaceString", 13) == 0) return TOKEN_STRING_REPLACE;
     if (len == 4 && strncmp(s, "Trim", 4) == 0) return TOKEN_TRIM;
     if (len == 3 && strncmp(s, "Len", 3) == 0) return TOKEN_LEN;
 
