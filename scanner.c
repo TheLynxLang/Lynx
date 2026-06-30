@@ -61,6 +61,9 @@ static LynxTokenType checkKeyword() {
     // Package manager
     if (strcmp(s, "KittyPort") == 0) return TOKEN_KITTY_PORT;
 
+    // Error
+    if (strcmp(s, "GetError") == 0) return TOKEN_GET_ERROR;
+
     // String functions
     if (strcmp(s, "KittySplitString") == 0) return TOKEN_STRING_SPLIT;
     if (strcmp(s, "KittyCheckIfStringContains") == 0) return TOKEN_STRING_CONTAINS;
