@@ -380,7 +380,7 @@ void parse_statement() {
 
                 // Restore scope
                 for (int i = 0; i < varCount; i++) {
-                    if (den[i].strValue) free(den[i].strValue);
+                    if (den[i].value.strValue) free(den[i].value.strValue);
                 }
                 for (int i = 0; i < savedCount; i++) den[i] = savedDen[i];
                 varCount = savedCount;
