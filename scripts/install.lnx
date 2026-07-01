@@ -1,4 +1,4 @@
-# install.lnx – Fully dynamic dependency installer
+# install.lnx – Lynx dependency installer (supports DLLs + any files)
 Roar "🐾 Installing dependencies..."
 
 Paw "libs"
@@ -7,27 +7,27 @@ Paw "libs"
 KittyReadFile "lynx.toml"
 Set content = KittyReadFile("lynx.toml")
 
-# Parse dependencies (requires StringSplit, StringContains, Trim, StringReplace)
-Set lines = StringSplit(content, "\n")
+# Parse dependencies (uses KittySplitString, KittyCheckIfStringContains, Trim, KittyReplaceString)
+Set lines = KittySplitString(content, "\n")
 Set in_deps = 0
 
 For line in lines {
-    If StringContains(line, "[dependencies]") {
+    If KittyCheckIfStringContains(line, "[dependencies]") {
         in_deps = 1
         Continue
     }
     
     If in_deps == 1 {
         If line == "" { Continue }
-        If StringContains(line, "[") {
+        If KittyCheckIfStringContains(line, "[") {
             Break
         }
         
-        Set parts = StringSplit(line, "=")
+        Set parts = KittySplitString(line, "=")
         If Len(parts) >= 2 {
             Set pkg = Trim(parts[0])
             Set version = Trim(parts[1])
-            version = StringReplace(version, "\"", "")
+            version = KittyReplaceString(version, "\"", "")
             
             Roar "📦 Installing " + pkg + " (" + version + ")"
             
@@ -35,8 +35,9 @@ For line in lines {
             Set dest = "libs/" + pkg + ".tar.gz"
             
             Run "curl -L -o " + dest + " " + url
-            Run "tar -xzf " + dest + " -C libs/"
-            Run "del " + dest
+            Run "mkdir -p libs/" + pkg
+            Run "tar -xzf " + dest + " -C libs/" + pkg + "/"
+            Run "rm " + dest
             
             Roar "✅ Installed " + pkg
         }
