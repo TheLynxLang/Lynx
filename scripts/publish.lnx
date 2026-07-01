@@ -1,4 +1,4 @@
-# publish.lnx – Fully dynamic packager
+# publish.lnx – Lynx package publisher (includes all files)
 Roar "🐾 Packaging project..."
 
 # Read lynx.toml
@@ -6,20 +6,20 @@ KittyReadFile "lynx.toml"
 Set content = KittyReadFile("lynx.toml")
 
 # Extract name + version
-Set lines = StringSplit(content, "\n")
+Set lines = KittySplitString(content, "\n")
 Set name = ""
 Set version = ""
 
 For line in lines {
-    If StringContains(line, "name = ") {
-        Set parts = StringSplit(line, "=")
+    If KittyCheckIfStringContains(line, "name = ") {
+        Set parts = KittySplitString(line, "=")
         name = Trim(parts[1])
-        name = StringReplace(name, "\"", "")
+        name = KittyReplaceString(name, "\"", "")
     }
-    If StringContains(line, "version = ") {
-        Set parts = StringSplit(line, "=")
+    If KittyCheckIfStringContains(line, "version = ") {
+        Set parts = KittySplitString(line, "=")
         version = Trim(parts[1])
-        version = StringReplace(version, "\"", "")
+        version = KittyReplaceString(version, "\"", "")
     }
 }
 
@@ -33,9 +33,9 @@ If version == "" {
     Exit
 }
 
-# Pack
+# Pack EVERYTHING (including DLLs, data files, etc.)
 Set tarball = name + "-" + version + ".tar.gz"
-Run "tar -czf " + tarball + " src/ lynx.toml"
+Run "tar -czf " + tarball + " *"
 
 Roar "✅ Created " + tarball
 Roar "📤 Push to: https://github.com/justdev-chris/lynx-registry"
