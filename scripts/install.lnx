@@ -7,7 +7,7 @@ Paw "libs"
 KittyReadFile "lynx.toml"
 Set content = KittyReadFile("lynx.toml")
 
-# Parse dependencies (uses KittySplitString, KittyCheckIfStringContains, Trim, KittyReplaceString)
+# Parse dependencies
 Set lines = KittySplitString(content, "\n")
 Set in_deps = 0
 
@@ -31,7 +31,7 @@ For line in lines {
             
             Roar "📦 Installing " + pkg + " (" + version + ")"
             
-            Set url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/" + pkg + "/" + version + "/package.tar.gz"
+            Set url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + pkg + "/" + version + "/package.tar.gz"
             Set dest = "libs/" + pkg + ".tar.gz"
             
             Run "curl -L -o " + dest + " " + url
