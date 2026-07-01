@@ -107,6 +107,10 @@ void setError(const char* msg);
 extern char* loaded_packages[64];
 extern int loaded_pkg_count;
 
+// Variable storage (for scoping)
+extern Variable den[];
+extern int varCount;
+
 // Scanner Functions
 void initScanner(const char* source);
 Token scanToken();
