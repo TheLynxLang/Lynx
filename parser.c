@@ -2,7 +2,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <direct.h>
 #include "lynx.h"
 
 // ─── ERROR HANDLING ──────────────────────────────────────────────
@@ -352,13 +351,12 @@ void parse_statement() {
         if (nameToken.type == TOKEN_STRING) {
             char name[64];
             snprintf(name, sizeof(name), "%s", nameToken.start + 1);
-            name[nameToken.length - 2] = '\0'; // remove quotes
+            name[nameToken.length - 2] = '\0';
 
             // 1. Try .lnx (scoped, cached)
             char lnxPath[256];
             snprintf(lnxPath, sizeof(lnxPath), "libs/%s/main.lnx", name);
 
-            // Check cache first
             int alreadyLoaded = 0;
             for (int i = 0; i < loaded_pkg_count; i++) {
                 if (strcmp(loaded_packages[i], name) == 0) { alreadyLoaded = 1; break; }
@@ -367,11 +365,9 @@ void parse_statement() {
             FILE* f = fopen(lnxPath, "r");
             if (f) {
                 fclose(f);
-                if (alreadyLoaded) return; // already loaded, skip
+                if (alreadyLoaded) return;
 
                 // Save current scope
-                extern Variable den[];
-                extern int varCount;
                 Variable savedDen[100];
                 int savedCount = varCount;
                 for (int i = 0; i < varCount; i++) savedDen[i] = den[i];
