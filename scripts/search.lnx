@@ -1,0 +1,15 @@
+# search.lnx – Search registry
+Roar "🐾 Searching for: " + __term
+
+# Fetch packages.json
+Run "curl -L -o /tmp/packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+KittyReadFile "/tmp/packages.json"
+Set json = KittyReadFile("/tmp/packages.json")
+
+# Simple string search
+If KittyCheckIfStringContains(json, __term) {
+    Roar "✅ Found:"
+    Run "cat /tmp/packages.json | grep -i " + __term
+} Else {
+    Roar "❌ No results found"
+}
