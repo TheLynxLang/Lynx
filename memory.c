@@ -6,14 +6,8 @@
 #define MAX_VARS 100
 #define MAX_FUNCS 50
 
-typedef struct {
-    char name[64];
-    double numValue;
-    char* strValue;
-    VarType type;
-} VariableImpl;
-
-VariableImpl den[MAX_VARS];
+// No VariableImpl — use Variable from lynx.h
+Variable den[MAX_VARS];
 int varCount = 0;
 
 typedef struct {
@@ -26,23 +20,22 @@ typedef struct {
 FunctionDef functions[MAX_FUNCS];
 int funcCount = 0;
 
-// Variable Management
 void setVar(const char* name, double val) {
     for (int i = 0; i < varCount; i++) {
         if (strcmp(den[i].name, name) == 0) {
-            den[i].numValue = val;
+            den[i].value.numValue = val;
             den[i].type = VAR_NUMBER;
-            if (den[i].strValue) free(den[i].strValue);
-            den[i].strValue = NULL;
+            if (den[i].value.strValue) free(den[i].value.strValue);
+            den[i].value.strValue = NULL;
             return;
         }
     }
     
     if (varCount < MAX_VARS) {
         strcpy(den[varCount].name, name);
-        den[varCount].numValue = val;
+        den[varCount].value.numValue = val;
         den[varCount].type = VAR_NUMBER;
-        den[varCount].strValue = NULL;
+        den[varCount].value.strValue = NULL;
         varCount++;
     }
 }
@@ -50,9 +43,9 @@ void setVar(const char* name, double val) {
 void setVarString(const char* name, const char* value) {
     for (int i = 0; i < varCount; i++) {
         if (strcmp(den[i].name, name) == 0) {
-            if (den[i].strValue) free(den[i].strValue);
-            den[i].strValue = malloc(strlen(value) + 1);
-            strcpy(den[i].strValue, value);
+            if (den[i].value.strValue) free(den[i].value.strValue);
+            den[i].value.strValue = malloc(strlen(value) + 1);
+            strcpy(den[i].value.strValue, value);
             den[i].type = VAR_STRING;
             return;
         }
@@ -60,10 +53,10 @@ void setVarString(const char* name, const char* value) {
     
     if (varCount < MAX_VARS) {
         strcpy(den[varCount].name, name);
-        den[varCount].strValue = malloc(strlen(value) + 1);
-        strcpy(den[varCount].strValue, value);
+        den[varCount].value.strValue = malloc(strlen(value) + 1);
+        strcpy(den[varCount].value.strValue, value);
         den[varCount].type = VAR_STRING;
-        den[varCount].numValue = 0;
+        den[varCount].value.numValue = 0;
         varCount++;
     }
 }
@@ -72,7 +65,7 @@ double getVar(const char* name) {
     for (int i = 0; i < varCount; i++) {
         if (strcmp(den[i].name, name) == 0) {
             if (den[i].type == VAR_NUMBER) {
-                return den[i].numValue;
+                return den[i].value.numValue;
             }
             return 0;
         }
@@ -84,7 +77,7 @@ char* getVarString(const char* name) {
     for (int i = 0; i < varCount; i++) {
         if (strcmp(den[i].name, name) == 0) {
             if (den[i].type == VAR_STRING) {
-                return den[i].strValue;
+                return den[i].value.strValue;
             }
             return "";
         }
@@ -95,7 +88,7 @@ char* getVarString(const char* name) {
 void pounce(const char* name) {
     for (int i = 0; i < varCount; i++) {
         if (strcmp(den[i].name, name) == 0) {
-            if (den[i].strValue) free(den[i].strValue);
+            if (den[i].value.strValue) free(den[i].value.strValue);
             for (int j = i; j < varCount - 1; j++) {
                 den[j] = den[j + 1];
             }
@@ -111,15 +104,14 @@ void hunt() {
     printf("\n🐾 DEN CONTENTS:\n");
     for (int i = 0; i < varCount; i++) {
         if (den[i].type == VAR_NUMBER) {
-            printf("   %-12s : %.5f (number)\n", den[i].name, den[i].numValue);
+            printf("   %-12s : %.5f (number)\n", den[i].name, den[i].value.numValue);
         } else if (den[i].type == VAR_STRING) {
-            printf("   %-12s : \"%s\" (string)\n", den[i].name, den[i].strValue);
+            printf("   %-12s : \"%s\" (string)\n", den[i].name, den[i].value.strValue);
         }
     }
     printf("\n");
 }
 
-// Function Management
 void defineFunction(const char* name, const char** params, int paramCount, const char* body) {
     if (funcCount >= MAX_FUNCS) {
         printf("🐾 Too many functions defined!\n");
@@ -144,22 +136,19 @@ int callFunction(const char* name) {
         if (strcmp(functions[i].name, name) == 0) {
             printf("🐾 Called function: %s\n", name);
             
-            // Save current variables
-            VariableImpl savedDen[MAX_VARS];
+            Variable savedDen[MAX_VARS];
             int savedVarCount = varCount;
             for (int j = 0; j < varCount; j++) {
                 savedDen[j] = den[j];
             }
             
-            // Execute function body
             initScanner(functions[i].body);
             while (peekToken().type != TOKEN_EOF) {
                 parse_statement();
             }
             
-            // Restore variables
             for (int j = 0; j < varCount; j++) {
-                if (den[j].strValue) free(den[j].strValue);
+                if (den[j].value.strValue) free(den[j].value.strValue);
             }
             for (int j = 0; j < savedVarCount; j++) {
                 den[j] = savedDen[j];
@@ -176,7 +165,7 @@ int callFunction(const char* name) {
 
 void cleanup_all() {
     for (int i = 0; i < varCount; i++) {
-        if (den[i].strValue) free(den[i].strValue);
+        if (den[i].value.strValue) free(den[i].value.strValue);
     }
     
     for (int i = 0; i < funcCount; i++) {
