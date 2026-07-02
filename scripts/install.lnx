@@ -10,6 +10,8 @@ Set content = KittyReadFile("lynx.toml")
 # Parse dependencies
 Set lines = KittySplitString(content, "\n")
 Set in_deps = 0
+Set installed_packages = ""
+Set lock_content = ""
 
 For line in lines {
     If KittyCheckIfStringContains(line, "[dependencies]") {
@@ -31,6 +33,35 @@ For line in lines {
             
             Roar "📦 Installing " + pkg + " (" + version + ")"
             
+            # Version resolution
+            Set resolved_version = version
+            
+            # Parse ^1.2.3 → >=1.2.3 <2.0.0
+            If KittyCheckIfStringContains(version, "^") {
+                Set base = KittyReplaceString(version, "^", "")
+                Set parts2 = KittySplitString(base, ".")
+                If Len(parts2) >= 1 {
+                    Set major = parts2[0]
+                    Set next_major = major + 1
+                    Set resolved_version = ">= " + base + " < " + next_major + ".0.0"
+                }
+            }
+            
+            # Parse ~1.2 → >=1.2.0 <1.3.0
+            If KittyCheckIfStringContains(version, "~") {
+                Set base = KittyReplaceString(version, "~", "")
+                Set parts2 = KittySplitString(base, ".")
+                If Len(parts2) >= 2 {
+                    Set major = parts2[0]
+                    Set minor = parts2[1]
+                    Set next_minor = minor + 1
+                    resolved_version = ">= " + base + ".0 < " + major + "." + next_minor + ".0"
+                }
+            }
+            
+            Roar "🔍 Resolved version: " + resolved_version
+            
+            # Download from registry
             Set url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + pkg + "/" + version + "/package.tar.gz"
             Set dest = "libs/" + pkg + ".tar.gz"
             
@@ -40,8 +71,59 @@ For line in lines {
             Run "rm " + dest
             
             Roar "✅ Installed " + pkg
+            
+            # Add to lockfile
+            lock_content = lock_content + pkg + " = \"" + version + "\"\n"
+            installed_packages = installed_packages + pkg + " "
+            
+            # Transitive deps: parse libs/<pkg>/lynx.toml
+            If KittyFileExists("libs/" + pkg + "/lynx.toml") {
+                KittyReadFile "libs/" + pkg + "/lynx.toml"
+                Set pkg_content = KittyReadFile("libs/" + pkg + "/lynx.toml")
+                Set pkg_lines = KittySplitString(pkg_content, "\n")
+                Set pkg_in_deps = 0
+                
+                For pkg_line in pkg_lines {
+                    If KittyCheckIfStringContains(pkg_line, "[dependencies]") {
+                        pkg_in_deps = 1
+                        Continue
+                    }
+                    
+                    If pkg_in_deps == 1 {
+                        If pkg_line == "" { Continue }
+                        If KittyCheckIfStringContains(pkg_line, "[") {
+                            Break
+                        }
+                        
+                        Set pkg_parts = KittySplitString(pkg_line, "=")
+                        If Len(pkg_parts) >= 2 {
+                            Set dep_pkg = Trim(pkg_parts[0])
+                            Set dep_version = Trim(pkg_parts[1])
+                            dep_version = KittyReplaceString(dep_version, "\"", "")
+                            
+                            # Check if already installed
+                            If KittyCheckIfStringContains(installed_packages, dep_pkg) == 0 {
+                                Roar "📦 Transitive dep: " + dep_pkg + " (" + dep_version + ")"
+                                Set dep_url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + dep_pkg + "/" + dep_version + "/package.tar.gz"
+                                Set dep_dest = "libs/" + dep_pkg + ".tar.gz"
+                                
+                                Run "curl -L -o " + dep_dest + " " + dep_url
+                                Run "mkdir -p libs/" + dep_pkg
+                                Run "tar -xzf " + dep_dest + " -C libs/" + dep_pkg + "/"
+                                Run "rm " + dep_dest
+                                
+                                lock_content = lock_content + dep_pkg + " = \"" + dep_version + "\"\n"
+                                installed_packages = installed_packages + dep_pkg + " "
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
+
+# Write lockfile
+KittyWriteFile "lynx.lock" lock_content
 
 Roar "✅ All dependencies installed."
