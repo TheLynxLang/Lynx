@@ -17,6 +17,9 @@ void show_help() {
     printf("\n  init               - Create new Lynx project\n");
     printf("  add <pkg>          - Add dependency to lynx.toml\n");
     printf("  install            - Install all dependencies\n");
+    printf("  remove <pkg>       - Remove a package\n");
+    printf("  search <term>      - Search registry for packages\n");
+    printf("  update             - Update all packages to latest\n");
     printf("  publish            - Pack project for registry\n");
     printf("  build              - Run src/main.lnx\n");
     printf("  run <file.lnx>     - Run script\n");
@@ -102,6 +105,28 @@ int main(int argc, char* argv[]) {
         }
         else if (_stricmp(argv[1], "publish") == 0) {
             runFile("scripts/publish.lnx");
+            return 0;
+        }
+        else if (_stricmp(argv[1], "remove") == 0) {
+            if (argc >= 3) {
+                setVarString("__pkg", argv[2]);
+                runFile("scripts/remove.lnx");
+            } else {
+                printf("🐾 Usage: lynx remove <package>\n");
+            }
+            return 0;
+        }
+        else if (_stricmp(argv[1], "search") == 0) {
+            if (argc >= 3) {
+                setVarString("__term", argv[2]);
+                runFile("scripts/search.lnx");
+            } else {
+                printf("🐾 Usage: lynx search <term>\n");
+            }
+            return 0;
+        }
+        else if (_stricmp(argv[1], "update") == 0) {
+            runFile("scripts/update.lnx");
             return 0;
         }
         else if (_stricmp(argv[1], "add") == 0) {
