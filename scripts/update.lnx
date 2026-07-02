@@ -1,0 +1,50 @@
+# update.lnx – Update all packages
+Roar "🐾 Updating packages..."
+
+# Read lynx.toml
+KittyReadFile "lynx.toml"
+Set content = KittyReadFile("lynx.toml")
+
+# Parse deps
+Set lines = KittySplitString(content, "\n")
+Set in_deps = 0
+
+For line in lines {
+    If KittyCheckIfStringContains(line, "[dependencies]") {
+        in_deps = 1
+        Continue
+    }
+    
+    If in_deps == 1 {
+        If line == "" { Continue }
+        If KittyCheckIfStringContains(line, "[") { Break }
+        
+        Set parts = KittySplitString(line, "=")
+        If Len(parts) >= 2 {
+            Set pkg = Trim(parts[0])
+            Set old_version = Trim(parts[1])
+            old_version = KittyReplaceString(old_version, "\"", "")
+            
+            Roar "📦 Updating " + pkg + " from " + old_version + " to latest"
+            
+            # Fetch latest version from registry
+            Run "curl -L -o /tmp/packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+            KittyReadFile "/tmp/packages.json"
+            Set json = KittyReadFile("/tmp/packages.json")
+            
+            # Simple version extraction (hardcoded for now)
+            Set new_version = "1.0.0"  # TODO: parse from JSON
+            
+            # Update lynx.toml
+            Set old_line = pkg + " = \"" + old_version + "\""
+            Set new_line = pkg + " = \"" + new_version + "\""
+            content = KittyReplaceString(content, old_line, new_line)
+            KittyWriteFile "lynx.toml" content
+            
+            # Reinstall
+            Run "lynx install"
+        }
+    }
+}
+
+Roar "✅ Updated all packages"
