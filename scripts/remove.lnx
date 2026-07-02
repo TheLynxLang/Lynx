@@ -1,0 +1,23 @@
+# remove.lnx – Remove a package
+Roar "🐾 Removing package: " + __pkg
+
+# Remove from lynx.toml
+KittyReadFile "lynx.toml"
+Set content = KittyReadFile("lynx.toml")
+
+# Remove line
+Set new_content = ""
+Set lines = KittySplitString(content, "\n")
+
+For line in lines {
+    If KittyCheckIfStringContains(line, __pkg + " = ") == 0 {
+        new_content = new_content + line + "\n"
+    }
+}
+
+KittyWriteFile "lynx.toml" new_content
+
+# Delete package folder
+Run "rm -rf libs/" + __pkg
+
+Roar "✅ Removed " + __pkg
