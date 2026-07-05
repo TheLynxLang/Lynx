@@ -1,0 +1,20 @@
+{
+  "name": "lynx-language",
+  "version": "1.0.0",
+  "contributes": {
+    "languages": [
+      {
+        "id": "lynx",
+        "extensions": [".lnx"],
+        "aliases": ["Lynx", "lynx"]
+      }
+    ],
+    "grammars": [
+      {
+        "language": "lynx",
+        "scopeName": "source.lnx",
+        "path": "./syntaxes/lynx.tmLanguage.json"
+      }
+    ]
+  }
+}
