@@ -117,6 +117,10 @@ typedef struct {
 // ─── GLOBALS ──────────────────────────────────────────────────
 extern Scanner scanner;
 extern char* lynx_error;
+extern char* loaded_packages[64];
+extern int loaded_pkg_count;
+extern Variable den[];
+extern int varCount;
 
 // ─── FUNCTIONS ──────────────────────────────────────────────────
 void initScanner(const char* source);
@@ -136,6 +140,8 @@ char* getVarString(const char* name);
 void setArrayElement(const char* name, int index, double value);
 double getArrayElement(const char* name, int index);
 int getArrayLength(const char* name);
+void setArrayStringElement(const char* name, int index, const char* value);
+char* getArrayStringElement(const char* name, int index);
 void pounce(const char* name);
 void hunt();
 
@@ -147,6 +153,7 @@ void unload_all_libs();
 
 void clearError();
 void setError(const char* msg);
+char* getError();
 
 void cleanup_all();
 
