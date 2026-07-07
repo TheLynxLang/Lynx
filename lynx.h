@@ -155,6 +155,9 @@ void clearError();
 void setError(const char* msg);
 char* getError();
 
+void format_file(const char* path);
+void check_file(const char* path);
+
 void cleanup_all();
 
 #endif
