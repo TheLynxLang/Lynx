@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-// Token Types
+// ─── TOKENS ──────────────────────────────────────────────────────
 typedef enum {
     // Commands
     TOKEN_SET, TOKEN_ROAR, TOKEN_HUNT, TOKEN_STALK_PACK, TOKEN_HELP,
@@ -12,8 +12,17 @@ typedef enum {
     // Functions and Loops
     TOKEN_FUNC, TOKEN_RETURN, TOKEN_FOR, TOKEN_WHILE, TOKEN_BREAK, TOKEN_CONTINUE,
 
-    // Logic and Array
-    TOKEN_AND, TOKEN_OR, TOKEN_NOT, TOKEN_LBRACKET, TOKEN_RBRACKET,
+    // Logic
+    TOKEN_AND, TOKEN_OR, TOKEN_NOT,
+
+    // Arrays
+    TOKEN_LBRACKET, TOKEN_RBRACKET,
+
+    // Error Handling
+    TOKEN_TRY, TOKEN_CATCH,
+
+    // CLI Arguments
+    TOKEN_ARGV,
 
     // File I/O
     TOKEN_KITTY_WRITE_FILE,
@@ -56,7 +65,7 @@ typedef enum {
     TOKEN_EOF, TOKEN_ERROR
 } LynxTokenType;
 
-// Token Structure
+// ─── TOKEN STRUCT ──────────────────────────────────────────────
 typedef struct {
     LynxTokenType type;
     const char* start;
@@ -64,30 +73,33 @@ typedef struct {
     int line;
 } Token;
 
-// Scanner State
+// ─── SCANNER ────────────────────────────────────────────────────
 typedef struct {
     const char* start;
     const char* current;
     int line;
 } Scanner;
 
-// Variable Type
+// ─── VARIABLE TYPES ────────────────────────────────────────────
 typedef enum {
     VAR_NUMBER,
     VAR_STRING,
     VAR_ARRAY
 } VarType;
 
-typedef struct {
+typedef struct Variable {
     char name[64];
     VarType type;
     union {
         double numValue;
         char* strValue;
+        struct Variable** array;
     } value;
+    int array_length;
+    int array_capacity;
 } Variable;
 
-// Function Definition
+// ─── FUNCTION ──────────────────────────────────────────────────
 typedef struct {
     char name[64];
     char params[10][64];
@@ -95,51 +107,47 @@ typedef struct {
     char* body;
 } Function;
 
-// Global Scanner
+// ─── ERROR STATE ──────────────────────────────────────────────
+typedef struct {
+    char* message;
+    int line;
+    int col;
+} LynxError;
+
+// ─── GLOBALS ──────────────────────────────────────────────────
 extern Scanner scanner;
-
-// Error handling
 extern char* lynx_error;
-void clearError();
-void setError(const char* msg);
 
-// KittyPort cache
-extern char* loaded_packages[64];
-extern int loaded_pkg_count;
-
-// Variable storage (for scoping)
-extern Variable den[];
-extern int varCount;
-
-// Scanner Functions
+// ─── FUNCTIONS ──────────────────────────────────────────────────
 void initScanner(const char* source);
 Token scanToken();
 Token peekToken();
 
-// Parser Functions
 void parse_statement();
 void parse_block();
 double parse_expression();
 int check_condition();
-void runFile(const char* path);
+void runFile(const char* path, int argc, char** argv);
 
-// Variable Functions
 void setVar(const char* name, double value);
 void setVarString(const char* name, const char* value);
 double getVar(const char* name);
 char* getVarString(const char* name);
+void setArrayElement(const char* name, int index, double value);
+double getArrayElement(const char* name, int index);
+int getArrayLength(const char* name);
 void pounce(const char* name);
 void hunt();
 
-// Function Functions
 void defineFunction(const char* name, const char** params, int paramCount, const char* body);
 int callFunction(const char* name);
 
-// Library Loading
 void load_lib(const char* lib_name);
 void unload_all_libs();
 
-// Cleanup
+void clearError();
+void setError(const char* msg);
+
 void cleanup_all();
 
 #endif
