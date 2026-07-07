@@ -9,7 +9,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Compile Engine
-      run: gcc main.c scanner.c parser.c memory.c libloader.c -o lynx.exe -lurlmon -luser32
+      run: gcc main.c scanner.c parser.c memory.c pawcom.c libloader.c -o lynx.exe -lurlmon -luser32
 
     - name: Build Installer
       run: |
