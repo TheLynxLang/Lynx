@@ -43,28 +43,28 @@ jobs:
 
       - name: Test Lynx commands
         run: |
-          lynx --version
-          lynx help
+          C:\"Program Files"\Lynx\lynx.exe --version
+          C:\"Program Files"\Lynx\lynx.exe help
 
-          lynx init
-          lynx add meowsys
-          lynx install
-          lynx build
+          C:\"Program Files"\Lynx\lynx.exe init
+          C:\"Program Files"\Lynx\lynx.exe add meowsys
+          C:\"Program Files"\Lynx\lynx.exe install
+          C:\"Program Files"\Lynx\lynx.exe build
 
-          lynx files
-          lynx cat lynx.toml
-          lynx project info
+          C:\"Program Files"\Lynx\lynx.exe files
+          C:\"Program Files"\Lynx\lynx.exe cat lynx.toml
+          C:\"Program Files"\Lynx\lynx.exe project info
 
-          lynx list pkgs
-          lynx list registry
-          lynx search meowsys
+          C:\"Program Files"\Lynx\lynx.exe list pkgs
+          C:\"Program Files"\Lynx\lynx.exe list registry
+          C:\"Program Files"\Lynx\lynx.exe search meowsys
 
-          lynx update
-          lynx remove meowsys
+          C:\"Program Files"\Lynx\lynx.exe update
+          C:\"Program Files"\Lynx\lynx.exe remove meowsys
 
-          lynx publish
-          lynx fmt src/main.lnx
-          lynx check src/main.lnx
+          C:\"Program Files"\Lynx\lynx.exe publish
+          C:\"Program Files"\Lynx\lynx.exe fmt src/main.lnx
+          C:\"Program Files"\Lynx\lynx.exe check src/main.lnx
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
