@@ -35,7 +35,7 @@ jobs:
 
       - name: Run installer silently
         run: |
-          installer\Output\Lynx-1.4.0-installer.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+          & installer\Output\Lynx-1.4.0-installer.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 
       - name: Test Lynx commands
         run: |
