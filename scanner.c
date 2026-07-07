@@ -12,10 +12,21 @@ void initScanner(const char* source) {
     scanner.line = 1;
 }
 
-static bool isAtEnd() { return *scanner.current == '\0'; }
-static char advance() { return *scanner.current++; }
-static char peek() { return *scanner.current; }
-static char peekNext() { return scanner.current[1]; }
+static bool isAtEnd() {
+    return *scanner.current == '\0';
+}
+
+static char advance() {
+    return *scanner.current++;
+}
+
+static char peek() {
+    return *scanner.current;
+}
+
+static char peekNext() {
+    return scanner.current[1];
+}
 
 static Token makeToken(LynxTokenType type) {
     Token token;
@@ -48,6 +59,9 @@ static LynxTokenType checkKeyword() {
     if (strcmp(s, "Or") == 0) return TOKEN_OR;
     if (strcmp(s, "Not") == 0) return TOKEN_NOT;
     if (strcmp(s, "Run") == 0) return TOKEN_RUN;
+    if (strcmp(s, "Try") == 0) return TOKEN_TRY;
+    if (strcmp(s, "Catch") == 0) return TOKEN_CATCH;
+    if (strcmp(s, "Argv") == 0) return TOKEN_ARGV;
 
     // File I/O
     if (strcmp(s, "KittyWriteFile") == 0) return TOKEN_KITTY_WRITE_FILE;
