@@ -1,0 +1,67 @@
+name: Test Lynx
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Lynx
+        run: |
+          gcc main.c scanner.c parser.c memory.c pawcom.c libloader.c -o lynx.exe -lurlmon -luser32
+
+      - name: Show version
+        run: ./lynx.exe --version
+
+      - name: Show help
+        run: ./lynx.exe help
+
+      - name: Create a new project
+        run: ./lynx.exe init
+
+      - name: Add a dependency
+        run: ./lynx.exe add meowsys
+
+      - name: Install dependencies
+        run: ./lynx.exe install
+
+      - name: Build the project
+        run: ./lynx.exe build
+
+      - name: Publish the project
+        run: ./lynx.exe publish
+
+      - name: Check syntax (if file exists)
+        run: ./lynx.exe check src/main.lnx || true
+
+      - name: Format code
+        run: ./lynx.exe fmt src/main.lnx || true
+
+      - name: Search registry
+        run: ./lynx.exe search meowsys
+
+      - name: Update packages
+        run: ./lynx.exe update || true
+
+      - name: Remove a package
+        run: ./lynx.exe remove meowsys || true
+
+      - name: Upload artifacts (if any)
+        uses: actions/upload-artifact@v4
+        with:
+          name: lynx-outputs
+          path: |
+            lynx.exe
+            lynx.toml
+            src/
+            libs/
+            *.tar.gz
