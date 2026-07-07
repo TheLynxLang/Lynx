@@ -23,6 +23,8 @@ void show_help() {
     printf("  publish            - Pack project for registry\n");
     printf("  build              - Run src/main.lnx\n");
     printf("  run <file.lnx>     - Run script\n");
+    printf("  fmt <file.lnx>     - Auto-format Lynx file\n");
+    printf("  check <file.lnx>   - Check syntax without executing\n");
     printf("  --version          - Show version\n");
     printf("  --update           - Self-update\n");
     printf("  help               - Show this menu\n\n");
@@ -135,6 +137,22 @@ int main(int argc, char* argv[]) {
                 runFile("scripts/add.lnx", 0, NULL);
             } else {
                 printf("🐾 Usage: lynx add <package>\n");
+            }
+            return 0;
+        }
+        else if (_stricmp(argv[1], "fmt") == 0) {
+            if (argc >= 3) {
+                format_file(argv[2]);
+            } else {
+                printf("🐾 Usage: lynx fmt <file.lnx>\n");
+            }
+            return 0;
+        }
+        else if (_stricmp(argv[1], "check") == 0) {
+            if (argc >= 3) {
+                check_file(argv[2]);
+            } else {
+                printf("🐾 Usage: lynx check <file.lnx>\n");
             }
             return 0;
         }
