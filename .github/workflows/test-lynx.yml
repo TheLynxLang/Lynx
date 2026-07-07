@@ -1,4 +1,4 @@
-name: Test Lynx
+name: Build, Install, and Test Lynx
 
 on:
   push:
@@ -8,60 +8,62 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  build-and-test:
     runs-on: windows-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install Inno Setup
+        run: choco install innosetup -y
+
       - name: Build Lynx
         run: |
           gcc main.c scanner.c parser.c memory.c pawcom.c libloader.c -o lynx.exe -lurlmon -luser32
 
-      - name: Show version
-        run: ./lynx.exe --version
+      - name: Copy files for installer
+        run: |
+          mkdir installer\files
+          copy lynx.exe installer\files\
+          xcopy std installer\files\std /E /I
+          xcopy scripts installer\files\scripts /E /I
 
-      - name: Show help
-        run: ./lynx.exe help
+      - name: Build installer
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\Lynx.iss
 
-      - name: Create a new project
-        run: ./lynx.exe init
+      - name: Run installer silently
+        run: |
+          installer\Output\Lynx-1.4.0-installer.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 
-      - name: Add a dependency
-        run: ./lynx.exe add meowsys
+      - name: Test Lynx commands
+        run: |
+          lynx --version
+          lynx help
 
-      - name: Install dependencies
-        run: ./lynx.exe install
+          lynx init
+          lynx add meowsys
+          lynx install
+          lynx build
 
-      - name: Build the project
-        run: ./lynx.exe build
+          lynx files
+          lynx cat lynx.toml
+          lynx project info
 
-      - name: Publish the project
-        run: ./lynx.exe publish
+          lynx list pkgs
+          lynx list registry
+          lynx search meowsys
 
-      - name: Check syntax (if file exists)
-        run: ./lynx.exe check src/main.lnx || true
+          lynx update
+          lynx remove meowsys
 
-      - name: Format code
-        run: ./lynx.exe fmt src/main.lnx || true
+          lynx publish
+          lynx fmt src/main.lnx
+          lynx check src/main.lnx
 
-      - name: Search registry
-        run: ./lynx.exe search meowsys
-
-      - name: Update packages
-        run: ./lynx.exe update || true
-
-      - name: Remove a package
-        run: ./lynx.exe remove meowsys || true
-
-      - name: Upload artifacts (if any)
+      - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: lynx-outputs
-          path: |
-            lynx.exe
-            lynx.toml
-            src/
-            libs/
-            *.tar.gz
+          name: lynx-installer
+          path: installer\Output\*.exe
