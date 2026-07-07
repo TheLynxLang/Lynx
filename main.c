@@ -93,20 +93,22 @@ int main(int argc, char* argv[]) {
                 printf("❌ Update failed.\n");
             }
         }
+        // ─── COMMANDS THAT RUN SCRIPTS ────────────────────────────
         else if (_stricmp(argv[1], "init") == 0) {
             runFile("scripts/init.lnx", 0, NULL);
             return 0;
         }
-        else if (_stricmp(argv[1], "build") == 0) {
-            runFile("src/main.lnx", 0, NULL);
+        else if (_stricmp(argv[1], "add") == 0) {
+            if (argc >= 3) {
+                setVarString("__pkg", argv[2]);
+                runFile("scripts/add.lnx", 0, NULL);
+            } else {
+                printf("🐾 Usage: lynx add <package>\n");
+            }
             return 0;
         }
         else if (_stricmp(argv[1], "install") == 0) {
             runFile("scripts/install.lnx", 0, NULL);
-            return 0;
-        }
-        else if (_stricmp(argv[1], "publish") == 0) {
-            runFile("scripts/publish.lnx", 0, NULL);
             return 0;
         }
         else if (_stricmp(argv[1], "remove") == 0) {
@@ -131,13 +133,12 @@ int main(int argc, char* argv[]) {
             runFile("scripts/update.lnx", 0, NULL);
             return 0;
         }
-        else if (_stricmp(argv[1], "add") == 0) {
-            if (argc >= 3) {
-                setVarString("__pkg", argv[2]);
-                runFile("scripts/add.lnx", 0, NULL);
-            } else {
-                printf("🐾 Usage: lynx add <package>\n");
-            }
+        else if (_stricmp(argv[1], "publish") == 0) {
+            runFile("scripts/publish.lnx", 0, NULL);
+            return 0;
+        }
+        else if (_stricmp(argv[1], "build") == 0) {
+            runFile("src/main.lnx", 0, NULL);
             return 0;
         }
         else if (_stricmp(argv[1], "fmt") == 0) {
@@ -156,8 +157,18 @@ int main(int argc, char* argv[]) {
             }
             return 0;
         }
+        // ─── FALLBACK: try scripts/<command>.lnx ──────────────────
         else {
-            runFile(argv[1], 0, NULL);
+            char scriptPath[256];
+            snprintf(scriptPath, sizeof(scriptPath), "scripts/%s.lnx", argv[1]);
+            FILE* f = fopen(scriptPath, "r");
+            if (f) {
+                fclose(f);
+                runFile(scriptPath, 0, NULL);
+            } else {
+                runFile(argv[1], 0, NULL);
+            }
+            return 0;
         }
 
         unload_all_libs();
