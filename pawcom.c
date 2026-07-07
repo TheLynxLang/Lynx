@@ -2,8 +2,11 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
-#include <direct.h>
 #include "lynx.h"
+
+#ifdef _WIN32
+#include <direct.h>
+#endif
 
 // ─── EXTERNAL DECLARATIONS ────────────────────────────────────
 extern Scanner scanner;
@@ -83,7 +86,8 @@ static void parse_array() {
 
     if (peekToken().type == TOKEN_RBRACKET) scanToken();
 
-    // TODO: Store array in memory.c
+    // Create array variable
+    // TODO: Actually store array in memory.c
     printf("Array %s created with %d elements\n", varName, count);
 }
 
