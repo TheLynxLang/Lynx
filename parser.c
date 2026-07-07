@@ -5,6 +5,12 @@
 #include <ctype.h>
 #include "lynx.h"
 
+
+// GLOBALS
+char* lynx_error = NULL;
+char* loaded_packages[64];
+int loaded_pkg_count = 0;
+
 // ─── FORWARD DECLARATIONS ──────────────────────────────────────
 void parse_statement();
 double parse_expression();
