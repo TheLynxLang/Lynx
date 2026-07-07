@@ -21,24 +21,8 @@ typedef struct {
 FunctionDef functions[MAX_FUNCS];
 int funcCount = 0;
 
-// ─── ERROR STATE ────────────────────────────────────────────────
+// ─── ERROR STATE (storage only) ─────────────────────────────────
 LynxError lynx_error_state = {0};
-
-void clearError() {
-    if (lynx_error_state.message) {
-        free(lynx_error_state.message);
-        lynx_error_state.message = NULL;
-    }
-    lynx_error_state.line = 0;
-    lynx_error_state.col = 0;
-}
-
-void setError(const char* msg) {
-    clearError();
-    lynx_error_state.message = malloc(strlen(msg) + 1);
-    if (lynx_error_state.message) strcpy(lynx_error_state.message, msg);
-    // line/col would be set by parser
-}
 
 char* getError() {
     return lynx_error_state.message;
@@ -55,10 +39,14 @@ static Variable* findVar(const char* name) {
 void setVar(const char* name, double val) {
     Variable* v = findVar(name);
     if (v) {
-        // Clear old array data if it was an array
         if (v->type == VAR_ARRAY) {
-            for (int i = 0; i < v->array_length; i++) {
-                if (v->value.array[i]) free(v->value.array[i]);
+            for (int i = 0; i < v->array_capacity; i++) {
+                if (v->value.array[i]) {
+                    if (v->value.array[i]->type == VAR_STRING && v->value.array[i]->value.strValue) {
+                        free(v->value.array[i]->value.strValue);
+                    }
+                    free(v->value.array[i]);
+                }
             }
             free(v->value.array);
         }
@@ -69,6 +57,7 @@ void setVar(const char* name, double val) {
         v->value.numValue = val;
         v->array_length = 0;
         v->array_capacity = 0;
+        v->value.array = NULL;
         return;
     }
     
@@ -88,8 +77,13 @@ void setVarString(const char* name, const char* value) {
     Variable* v = findVar(name);
     if (v) {
         if (v->type == VAR_ARRAY) {
-            for (int i = 0; i < v->array_length; i++) {
-                if (v->value.array[i]) free(v->value.array[i]);
+            for (int i = 0; i < v->array_capacity; i++) {
+                if (v->value.array[i]) {
+                    if (v->value.array[i]->type == VAR_STRING && v->value.array[i]->value.strValue) {
+                        free(v->value.array[i]->value.strValue);
+                    }
+                    free(v->value.array[i]);
+                }
             }
             free(v->value.array);
         }
@@ -99,6 +93,7 @@ void setVarString(const char* name, const char* value) {
         if (v->value.strValue) strcpy(v->value.strValue, value);
         v->array_length = 0;
         v->array_capacity = 0;
+        v->value.array = NULL;
         return;
     }
     
@@ -117,29 +112,19 @@ void setVarString(const char* name, const char* value) {
 double getVar(const char* name) {
     Variable* v = findVar(name);
     if (!v) {
-        setError("Variable not found");
         return 0;
     }
     if (v->type == VAR_NUMBER) return v->value.numValue;
     if (v->type == VAR_STRING) return 0;
-    if (v->type == VAR_ARRAY) {
-        setError("Cannot get array as number");
-        return 0;
-    }
     return 0;
 }
 
 char* getVarString(const char* name) {
     Variable* v = findVar(name);
     if (!v) {
-        setError("Variable not found");
         return "";
     }
     if (v->type == VAR_STRING) return v->value.strValue;
-    if (v->type == VAR_ARRAY) {
-        setError("Cannot get array as string");
-        return "";
-    }
     return "";
 }
 
@@ -147,21 +132,23 @@ char* getVarString(const char* name) {
 void setArrayElement(const char* name, int index, double value) {
     Variable* v = findVar(name);
     if (!v) {
-        setError("Array variable not found");
         return;
     }
     
     if (v->type != VAR_ARRAY) {
-        setError("Variable is not an array");
-        return;
+        // Convert to array if it's empty
+        if (v->type == VAR_NUMBER && v->value.numValue == 0 && !v->value.strValue) {
+            v->type = VAR_ARRAY;
+            v->value.array = NULL;
+            v->array_length = 0;
+            v->array_capacity = 0;
+        } else {
+            return;
+        }
     }
     
-    if (index < 0) {
-        setError("Array index out of bounds (negative)");
-        return;
-    }
+    if (index < 0) return;
     
-    // Expand array if needed
     if (index >= v->array_capacity) {
         int new_cap = index + 10;
         v->value.array = realloc(v->value.array, new_cap * sizeof(Variable*));
@@ -182,18 +169,11 @@ void setArrayElement(const char* name, int index, double value) {
 
 double getArrayElement(const char* name, int index) {
     Variable* v = findVar(name);
-    if (!v) {
-        setError("Array variable not found");
-        return 0;
-    }
+    if (!v) return 0;
     
-    if (v->type != VAR_ARRAY) {
-        setError("Variable is not an array");
-        return 0;
-    }
+    if (v->type != VAR_ARRAY) return 0;
     
     if (index < 0 || index >= v->array_capacity || v->value.array[index] == NULL) {
-        setError("Array index out of bounds");
         return 0;
     }
     
@@ -202,35 +182,29 @@ double getArrayElement(const char* name, int index) {
 
 int getArrayLength(const char* name) {
     Variable* v = findVar(name);
-    if (!v) {
-        setError("Array variable not found");
-        return 0;
-    }
+    if (!v) return 0;
     
-    if (v->type != VAR_ARRAY) {
-        setError("Variable is not an array");
-        return 0;
-    }
+    if (v->type != VAR_ARRAY) return 0;
     
     return v->array_length;
 }
 
 void setArrayStringElement(const char* name, int index, const char* value) {
     Variable* v = findVar(name);
-    if (!v) {
-        setError("Array variable not found");
-        return;
-    }
+    if (!v) return;
     
     if (v->type != VAR_ARRAY) {
-        setError("Variable is not an array");
-        return;
+        if (v->type == VAR_NUMBER && v->value.numValue == 0 && !v->value.strValue) {
+            v->type = VAR_ARRAY;
+            v->value.array = NULL;
+            v->array_length = 0;
+            v->array_capacity = 0;
+        } else {
+            return;
+        }
     }
     
-    if (index < 0) {
-        setError("Array index out of bounds (negative)");
-        return;
-    }
+    if (index < 0) return;
     
     if (index >= v->array_capacity) {
         int new_cap = index + 10;
@@ -254,23 +228,15 @@ void setArrayStringElement(const char* name, int index, const char* value) {
 
 char* getArrayStringElement(const char* name, int index) {
     Variable* v = findVar(name);
-    if (!v) {
-        setError("Array variable not found");
-        return "";
-    }
+    if (!v) return "";
     
-    if (v->type != VAR_ARRAY) {
-        setError("Variable is not an array");
-        return "";
-    }
+    if (v->type != VAR_ARRAY) return "";
     
     if (index < 0 || index >= v->array_capacity || v->value.array[index] == NULL) {
-        setError("Array index out of bounds");
         return "";
     }
     
     if (v->value.array[index]->type != VAR_STRING) {
-        setError("Array element is not a string");
         return "";
     }
     
@@ -422,5 +388,8 @@ void cleanup_all() {
         if (functions[i].body) free(functions[i].body);
     }
     
-    clearError();
+    if (lynx_error_state.message) {
+        free(lynx_error_state.message);
+        lynx_error_state.message = NULL;
+    }
 }
