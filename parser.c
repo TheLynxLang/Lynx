@@ -1,12 +1,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <direct.h>
 #include <ctype.h>
 #include "lynx.h"
 
-
-// GLOBALS
+// ─── GLOBALS ──────────────────────────────────────────────────
 char* lynx_error = NULL;
 char* loaded_packages[64];
 int loaded_pkg_count = 0;
@@ -16,16 +14,21 @@ void parse_statement();
 double parse_expression();
 int parse_logic_expression();
 
-// ─── EXTERNAL ERROR HANDLING ──────────────────────────────────
-extern char* lynx_error;
-extern void setError(const char* msg);
-extern void clearError();
+// ─── ERROR HANDLING ──────────────────────────────────────────────
+void clearError() {
+    if (lynx_error) {
+        free(lynx_error);
+        lynx_error = NULL;
+    }
+}
 
-// ─── KITTYPORT CACHE ──────────────────────────────────────────
-extern char* loaded_packages[64];
-extern int loaded_pkg_count;
+void setError(const char* msg) {
+    clearError();
+    lynx_error = malloc(strlen(msg) + 1);
+    if (lynx_error) strcpy(lynx_error, msg);
+}
 
-// ─── PARSING ──────────────────────────────────────────────────
+// ─── PARSING ──────────────────────────────────────────────────────
 
 double parse_primary() {
     Token t = scanToken();
@@ -211,11 +214,103 @@ void parse_function_def() {
     defineFunction(funcName, (const char**)params, paramCount, body);
 }
 
+// ─── FORMAT / CHECK ──────────────────────────────────────────────
+void format_file(const char* path) {
+    FILE* f = fopen(path, "r");
+    if (!f) {
+        printf("🐾 Error: Cannot open %s\n", path);
+        return;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    rewind(f);
+    char* src = malloc(size + 1);
+    fread(src, 1, size, f);
+    src[size] = '\0';
+    fclose(f);
+
+    char* result = malloc(size * 2 + 1);
+    result[0] = '\0';
+    int indent = 0;
+    int line_start = 1;
+
+    for (int i = 0; src[i]; i++) {
+        char c = src[i];
+        if (c == '\n') {
+            strcat(result, "\n");
+            line_start = 1;
+        } else if (line_start) {
+            for (int j = 0; j < indent * 2; j++) strcat(result, " ");
+            line_start = 0;
+            for (int j = i; src[j] && src[j] != '\n'; j++) {
+                if (src[j] == '{') indent++;
+                else if (src[j] == '}') indent--;
+            }
+            strcat(result, &src[i]);
+            while (src[i] && src[i] != '\n') i++;
+            if (src[i]) i--;
+        }
+    }
+    if (strlen(result) > 0 && result[strlen(result)-1] != '\n')
+        strcat(result, "\n");
+
+    f = fopen(path, "w");
+    if (f) {
+        fwrite(result, 1, strlen(result), f);
+        fclose(f);
+        printf("🐾 Formatted %s\n", path);
+    } else {
+        printf("🐾 Error: Cannot write to %s\n", path);
+    }
+
+    free(src);
+    free(result);
+}
+
+void check_file(const char* path) {
+    FILE* f = fopen(path, "r");
+    if (!f) {
+        printf("🐾 Error: Cannot open %s\n", path);
+        return;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    rewind(f);
+    char* src = malloc(size + 1);
+    fread(src, 1, size, f);
+    src[size] = '\0';
+    fclose(f);
+
+    char* old_error = lynx_error ? strdup(lynx_error) : NULL;
+    clearError();
+
+    initScanner(src);
+    while (peekToken().type != TOKEN_EOF) {
+        parse_statement();
+    }
+
+    if (lynx_error) {
+        printf("🐾 Error: %s\n", lynx_error);
+        clearError();
+        free(src);
+        exit(1);
+    } else {
+        printf("✅ No errors found in %s\n", path);
+    }
+
+    if (old_error) {
+        lynx_error = old_error;
+    }
+
+    free(src);
+}
+
 // ─── PARSE STATEMENT ──────────────────────────────────────────
 void parse_statement() {
     Token t = scanToken();
 
-    // ─── CONTROL FLOW ──────────────────────────────────────────────
     if (t.type == TOKEN_IF) {
         int cond = parse_logic_expression();
         if (cond) {
@@ -235,11 +330,6 @@ void parse_statement() {
     if (t.type == TOKEN_FOR) { parse_for_loop(); return; }
     if (t.type == TOKEN_WHILE) { parse_while_loop(); return; }
     if (t.type == TOKEN_FUNC) { parse_function_def(); return; }
-
-    // ─── BUILT-IN COMMANDS (handled in pawcom.c) ────────────────
-    // All built-in commands (Set, Roar, Hunt, Pounce, KittyPort,
-    // file I/O, Try/Catch, Argv, string functions, etc.) are
-    // implemented in pawcom.c via pawcom_parse_statement().
 
     extern void pawcom_parse_statement(Token t);
     pawcom_parse_statement(t);
