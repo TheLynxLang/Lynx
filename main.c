@@ -28,7 +28,7 @@ void show_help() {
     printf("  help               - Show this menu\n\n");
 }
 
-void runFile(const char* path) {
+void runFile(const char* path, int argc, char** argv) {
     char cleanPath[MAX_PATH];
     if (path[0] == '"') {
         int len = strlen(path) - 2;
@@ -92,25 +92,25 @@ int main(int argc, char* argv[]) {
             }
         }
         else if (_stricmp(argv[1], "init") == 0) {
-            runFile("scripts/init.lnx");
+            runFile("scripts/init.lnx", 0, NULL);
             return 0;
         }
         else if (_stricmp(argv[1], "build") == 0) {
-            runFile("src/main.lnx");
+            runFile("src/main.lnx", 0, NULL);
             return 0;
         }
         else if (_stricmp(argv[1], "install") == 0) {
-            runFile("scripts/install.lnx");
+            runFile("scripts/install.lnx", 0, NULL);
             return 0;
         }
         else if (_stricmp(argv[1], "publish") == 0) {
-            runFile("scripts/publish.lnx");
+            runFile("scripts/publish.lnx", 0, NULL);
             return 0;
         }
         else if (_stricmp(argv[1], "remove") == 0) {
             if (argc >= 3) {
                 setVarString("__pkg", argv[2]);
-                runFile("scripts/remove.lnx");
+                runFile("scripts/remove.lnx", 0, NULL);
             } else {
                 printf("🐾 Usage: lynx remove <package>\n");
             }
@@ -119,27 +119,27 @@ int main(int argc, char* argv[]) {
         else if (_stricmp(argv[1], "search") == 0) {
             if (argc >= 3) {
                 setVarString("__term", argv[2]);
-                runFile("scripts/search.lnx");
+                runFile("scripts/search.lnx", 0, NULL);
             } else {
                 printf("🐾 Usage: lynx search <term>\n");
             }
             return 0;
         }
         else if (_stricmp(argv[1], "update") == 0) {
-            runFile("scripts/update.lnx");
+            runFile("scripts/update.lnx", 0, NULL);
             return 0;
         }
         else if (_stricmp(argv[1], "add") == 0) {
             if (argc >= 3) {
                 setVarString("__pkg", argv[2]);
-                runFile("scripts/add.lnx");
+                runFile("scripts/add.lnx", 0, NULL);
             } else {
                 printf("🐾 Usage: lynx add <package>\n");
             }
             return 0;
         }
         else {
-            runFile(argv[1]);
+            runFile(argv[1], 0, NULL);
         }
 
         unload_all_libs();
@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
         } else if (_stricmp(line, "exit") == 0) {
             break;
         } else if (strstr(line, ".lnx") != NULL) {
-            runFile(line);
+            runFile(line, 0, NULL);
         } else {
             initScanner(line);
             parse_statement();
