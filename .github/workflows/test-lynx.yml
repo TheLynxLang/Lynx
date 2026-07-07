@@ -33,9 +33,13 @@ jobs:
         run: |
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\Lynx.iss
 
+      - name: List installer folder (debug)
+        run: |
+          dir installer
+
       - name: Run installer silently
         run: |
-          cmd /c installer\Lynx-1.4.0-installer.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+          cmd /c installer\installer\Lynx-1.4.0-installer.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
 
       - name: Test Lynx commands
         run: |
@@ -66,4 +70,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lynx-installer
-          path: installer\Lynx-1.4.0-installer.exe
+          path: installer\installer\Lynx-1.4.0-installer.exe
