@@ -3,8 +3,9 @@
 #include <stdlib.h>
 #include "lynx.h"
 
-#define MAX_VARS 100
-#define MAX_FUNCS 50
+#define MAX_VARS 1000
+#define MAX_FUNCS 200
+#define MAX_RECURSION 100
 
 // ─── VARIABLE STORAGE ────────────────────────────────────────────
 Variable den[MAX_VARS];
@@ -21,11 +22,17 @@ typedef struct {
 FunctionDef functions[MAX_FUNCS];
 int funcCount = 0;
 
+// ─── RECURSION GUARD ────────────────────────────────────────────
+static int recursionDepth = 0;
+
 // ─── ERROR STATE (storage only) ─────────────────────────────────
 LynxError lynx_error_state = {0};
 
 char* getError() {
-    return lynx_error_state.message;
+    if (lynx_error_state.message) {
+        return strdup(lynx_error_state.message);
+    }
+    return strdup("OK");
 }
 
 // ─── VARIABLE MANAGEMENT ────────────────────────────────────────
@@ -44,14 +51,18 @@ void setVar(const char* name, double val) {
                 if (v->value.array[i]) {
                     if (v->value.array[i]->type == VAR_STRING && v->value.array[i]->value.strValue) {
                         free(v->value.array[i]->value.strValue);
+                        v->value.array[i]->value.strValue = NULL;
                     }
                     free(v->value.array[i]);
+                    v->value.array[i] = NULL;
                 }
             }
             free(v->value.array);
+            v->value.array = NULL;
         }
         if (v->type == VAR_STRING && v->value.strValue) {
             free(v->value.strValue);
+            v->value.strValue = NULL;
         }
         v->type = VAR_NUMBER;
         v->value.numValue = val;
@@ -81,13 +92,19 @@ void setVarString(const char* name, const char* value) {
                 if (v->value.array[i]) {
                     if (v->value.array[i]->type == VAR_STRING && v->value.array[i]->value.strValue) {
                         free(v->value.array[i]->value.strValue);
+                        v->value.array[i]->value.strValue = NULL;
                     }
                     free(v->value.array[i]);
+                    v->value.array[i] = NULL;
                 }
             }
             free(v->value.array);
+            v->value.array = NULL;
         }
-        if (v->value.strValue) free(v->value.strValue);
+        if (v->value.strValue) {
+            free(v->value.strValue);
+            v->value.strValue = NULL;
+        }
         v->type = VAR_STRING;
         v->value.strValue = malloc(strlen(value) + 1);
         if (v->value.strValue) strcpy(v->value.strValue, value);
@@ -136,7 +153,6 @@ void setArrayElement(const char* name, int index, double value) {
     }
     
     if (v->type != VAR_ARRAY) {
-        // Convert to array if it's empty
         if (v->type == VAR_NUMBER && v->value.numValue == 0 && !v->value.strValue) {
             v->type = VAR_ARRAY;
             v->value.array = NULL;
@@ -221,7 +237,10 @@ void setArrayStringElement(const char* name, int index, const char* value) {
     }
     
     v->value.array[index]->type = VAR_STRING;
-    if (v->value.array[index]->value.strValue) free(v->value.array[index]->value.strValue);
+    if (v->value.array[index]->value.strValue) {
+        free(v->value.array[index]->value.strValue);
+        v->value.array[index]->value.strValue = NULL;
+    }
     v->value.array[index]->value.strValue = malloc(strlen(value) + 1);
     if (v->value.array[index]->value.strValue) strcpy(v->value.array[index]->value.strValue, value);
 }
@@ -249,17 +268,22 @@ void pounce(const char* name) {
         if (strcmp(den[i].name, name) == 0) {
             if (den[i].type == VAR_STRING && den[i].value.strValue) {
                 free(den[i].value.strValue);
+                den[i].value.strValue = NULL;
             }
             if (den[i].type == VAR_ARRAY) {
                 for (int j = 0; j < den[i].array_capacity; j++) {
                     if (den[i].value.array[j]) {
-                        if (den[i].value.array[j]->type == VAR_STRING && den[i].value.array[j]->value.strValue) {
+                        if (den[i].value.array[j]->type == VAR_STRING && 
+                            den[i].value.array[j]->value.strValue) {
                             free(den[i].value.array[j]->value.strValue);
+                            den[i].value.array[j]->value.strValue = NULL;
                         }
                         free(den[i].value.array[j]);
+                        den[i].value.array[j] = NULL;
                     }
                 }
                 free(den[i].value.array);
+                den[i].value.array = NULL;
             }
             for (int j = i; j < varCount - 1; j++) {
                 den[j] = den[j + 1];
@@ -321,11 +345,17 @@ void defineFunction(const char* name, const char** params, int paramCount, const
 }
 
 int callFunction(const char* name) {
+    if (recursionDepth >= MAX_RECURSION) {
+        setError("Recursion depth exceeded", 0, 0);
+        return 0;
+    }
+    recursionDepth++;
+    
     for (int i = 0; i < funcCount; i++) {
         if (strcmp(functions[i].name, name) == 0) {
             printf("🐾 Called function: %s\n", name);
             
-            Variable savedDen[MAX_VARS];
+            Variable* savedDen = malloc(varCount * sizeof(Variable));
             int savedVarCount = varCount;
             for (int j = 0; j < varCount; j++) {
                 savedDen[j] = den[j];
@@ -334,34 +364,43 @@ int callFunction(const char* name) {
             initScanner(functions[i].body);
             while (peekToken().type != TOKEN_EOF) {
                 parse_statement();
+                if (lynx_error) break;
             }
             
             for (int j = 0; j < varCount; j++) {
                 if (den[j].type == VAR_STRING && den[j].value.strValue) {
                     free(den[j].value.strValue);
+                    den[j].value.strValue = NULL;
                 }
                 if (den[j].type == VAR_ARRAY) {
                     for (int k = 0; k < den[j].array_capacity; k++) {
                         if (den[j].value.array[k]) {
-                            if (den[j].value.array[k]->type == VAR_STRING && den[j].value.array[k]->value.strValue) {
+                            if (den[j].value.array[k]->type == VAR_STRING && 
+                                den[j].value.array[k]->value.strValue) {
                                 free(den[j].value.array[k]->value.strValue);
+                                den[j].value.array[k]->value.strValue = NULL;
                             }
                             free(den[j].value.array[k]);
+                            den[j].value.array[k] = NULL;
                         }
                     }
                     free(den[j].value.array);
+                    den[j].value.array = NULL;
                 }
             }
             for (int j = 0; j < savedVarCount; j++) {
                 den[j] = savedDen[j];
             }
             varCount = savedVarCount;
+            free(savedDen);
             
+            recursionDepth--;
             return 1;
         }
     }
     
     printf("🐾 Function '%s' not found\n", name);
+    recursionDepth--;
     return 0;
 }
 
@@ -370,26 +409,39 @@ void cleanup_all() {
     for (int i = 0; i < varCount; i++) {
         if (den[i].type == VAR_STRING && den[i].value.strValue) {
             free(den[i].value.strValue);
+            den[i].value.strValue = NULL;
         }
         if (den[i].type == VAR_ARRAY) {
             for (int j = 0; j < den[i].array_capacity; j++) {
                 if (den[i].value.array[j]) {
-                    if (den[i].value.array[j]->type == VAR_STRING && den[i].value.array[j]->value.strValue) {
+                    if (den[i].value.array[j]->type == VAR_STRING && 
+                        den[i].value.array[j]->value.strValue) {
                         free(den[i].value.array[j]->value.strValue);
+                        den[i].value.array[j]->value.strValue = NULL;
                     }
                     free(den[i].value.array[j]);
+                    den[i].value.array[j] = NULL;
                 }
             }
             free(den[i].value.array);
+            den[i].value.array = NULL;
         }
     }
     
     for (int i = 0; i < funcCount; i++) {
-        if (functions[i].body) free(functions[i].body);
+        if (functions[i].body) {
+            free(functions[i].body);
+            functions[i].body = NULL;
+        }
     }
     
     if (lynx_error_state.message) {
         free(lynx_error_state.message);
         lynx_error_state.message = NULL;
+    }
+    
+    if (lynx_error) {
+        free(lynx_error);
+        lynx_error = NULL;
     }
 }
