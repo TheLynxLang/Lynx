@@ -15,7 +15,7 @@ extern Scanner scanner;
 extern char* lynx_error;
 extern LynxError lynx_error_state;
 
-void show_help() {
+void show_help(void) {
     printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
     printf("\n  init               - Create new Lynx project\n");
     printf("  add <pkg>          - Add dependency to lynx.toml\n");
@@ -46,10 +46,8 @@ void runFile(const char* path, int argc, char** argv) {
     FILE* file = NULL;
     char fullPath[LYNX_MAX_PATH] = {0};
     
-    // 1. Current working directory
     file = fopen(cleanPath, "rb");
     
-    // 2. Lynx installation directory
     if (!file) {
         char exePath[LYNX_MAX_PATH];
         GetModuleFileNameA(NULL, exePath, LYNX_MAX_PATH);
@@ -61,7 +59,6 @@ void runFile(const char* path, int argc, char** argv) {
         }
     }
     
-    // 3. %APPDATA%\LynxLang\std\
     if (!file) {
         char stdPath[LYNX_MAX_PATH];
         snprintf(stdPath, LYNX_MAX_PATH, "%s\\LynxLang\\std\\%s", getenv("APPDATA"), cleanPath);
