@@ -88,7 +88,6 @@ void runFile(const char* path, int argc, char** argv) {
         while (peekToken().type != TOKEN_EOF) {
             parse_statement();
             if (lynx_error) {
-                // Error already printed by parse_statement
                 break;
             }
         }
