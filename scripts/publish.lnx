@@ -1,29 +1,30 @@
-# publish.lnx – Lynx package publisher (includes all files)
 Roar "🐾 Packaging project..."
 
-# Read lynx.toml
 KittyReadFile "lynx.toml"
-Set content = KittyReadFile("lynx.toml")
+Set content = __file_content
 
-# Extract name + version
 Set lines = KittySplitString(content, "\n")
 Set name = ""
 Set version = ""
 
-For line in lines {
+For i = 0 To __result - 1 {
+    Set line = __result[i]
     If KittyCheckIfStringContains(line, "name = ") {
         Set parts = KittySplitString(line, "=")
-        name = Trim(parts[1])
-        name = KittyReplaceString(name, "\"", "")
+        If Len(parts) >= 2 {
+            Set name = Trim(parts[1])
+            Set name = KittyReplaceString(name, "\"", "")
+        }
     }
     If KittyCheckIfStringContains(line, "version = ") {
         Set parts = KittySplitString(line, "=")
-        version = Trim(parts[1])
-        version = KittyReplaceString(version, "\"", "")
+        If Len(parts) >= 2 {
+            Set version = Trim(parts[1])
+            Set version = KittyReplaceString(version, "\"", "")
+        }
     }
 }
 
-# Error if missing
 If name == "" {
     Roar "❌ No name found in lynx.toml"
     Exit
@@ -33,12 +34,26 @@ If version == "" {
     Exit
 }
 
-# Pack EVERYTHING (including DLLs, data files, etc.)
+KittyFileExists "src/main.lnx"
+If __result == 0 {
+    Roar "⚠️ No src/main.lnx found"
+    Roar "   Continuing anyway..."
+}
+
 Set tarball = name + "-" + version + ".tar.gz"
 Run "tar -czf " + tarball + " *"
+
+KittyFileExists tarball
+If __result == 0 {
+    Roar "❌ Failed to create tarball"
+    Exit
+}
+
+Run "certutil -hashfile " + tarball + " SHA256 > " + tarball + ".sha256"
 
 Roar "✅ Created " + tarball
 Roar "📤 Push to: https://github.com/justdev-chris/lynx-registry"
 Roar "   mkdir -p " + name + "/" + version
 Roar "   cp " + tarball + " " + name + "/" + version + "/"
+Roar "   cp " + tarball + ".sha256 " + name + "/" + version + "/"
 Roar "   git add . && git commit -m 'Add " + name + " " + version + "' && git push"
