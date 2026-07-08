@@ -3,6 +3,14 @@
 
 #include <stdbool.h>
 
+// ─── CONSTANTS ────────────────────────────────────────────────
+#define MAX_VARS 1000
+#define MAX_FUNCS 200
+#define MAX_PACKAGES 64
+#define MAX_PATH 4096
+#define MAX_STRING 16384
+#define MAX_RECURSION 100
+
 // ─── TOKENS ──────────────────────────────────────────────────────
 typedef enum {
     // Commands
@@ -35,6 +43,7 @@ typedef enum {
 
     // Package manager
     TOKEN_KITTY_PORT,
+    TOKEN_EXPORT,
 
     // System
     TOKEN_RUN,
@@ -71,6 +80,7 @@ typedef struct {
     const char* start;
     int length;
     int line;
+    int col;
 } Token;
 
 // ─── SCANNER ────────────────────────────────────────────────────
@@ -78,6 +88,7 @@ typedef struct {
     const char* start;
     const char* current;
     int line;
+    int col;
 } Scanner;
 
 // ─── VARIABLE TYPES ────────────────────────────────────────────
@@ -121,6 +132,7 @@ extern char* loaded_packages[64];
 extern int loaded_pkg_count;
 extern Variable den[];
 extern int varCount;
+extern LynxError lynx_error_state;
 
 // ─── FUNCTIONS ──────────────────────────────────────────────────
 void initScanner(const char* source);
@@ -152,7 +164,7 @@ void load_lib(const char* lib_name);
 void unload_all_libs();
 
 void clearError();
-void setError(const char* msg);
+void setError(const char* msg, int line, int col);
 char* getError();
 
 void format_file(const char* path);
