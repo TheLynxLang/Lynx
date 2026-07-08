@@ -15,7 +15,7 @@ extern Scanner scanner;
 extern char* lynx_error;
 extern LynxError lynx_error_state;
 
-void show_help(void) {
+void show_help() {
     printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
     printf("\n  init               - Create new Lynx project\n");
     printf("  add <pkg>          - Add dependency to lynx.toml\n");
@@ -46,8 +46,10 @@ void runFile(const char* path, int argc, char** argv) {
     FILE* file = NULL;
     char fullPath[LYNX_MAX_PATH] = {0};
     
+    // 1. Current working directory
     file = fopen(cleanPath, "rb");
     
+    // 2. Lynx installation directory (where lynx.exe lives)
     if (!file) {
         char exePath[LYNX_MAX_PATH];
         GetModuleFileNameA(NULL, exePath, LYNX_MAX_PATH);
@@ -59,6 +61,7 @@ void runFile(const char* path, int argc, char** argv) {
         }
     }
     
+    // 3. %APPDATA%\LynxLang\std\
     if (!file) {
         char stdPath[LYNX_MAX_PATH];
         snprintf(stdPath, LYNX_MAX_PATH, "%s\\LynxLang\\std\\%s", getenv("APPDATA"), cleanPath);
@@ -66,7 +69,9 @@ void runFile(const char* path, int argc, char** argv) {
     }
 
     if (!file) {
-        fprintf(stderr, "🐾 Lynx Error: File '%s' not found.\n", cleanPath);
+        setErrorF("File '%s' not found", cleanPath);
+        fprintf(stderr, "🐾 %s\n", lynx_error);
+        clearError();
         return;
     }
 
@@ -84,6 +89,8 @@ void runFile(const char* path, int argc, char** argv) {
         while (peekToken().type != TOKEN_EOF) {
             parse_statement();
             if (lynx_error) {
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
                 break;
             }
         }
@@ -114,7 +121,9 @@ int main(int argc, char* argv[]) {
                 ShellExecuteA(NULL, "open", tempInstaller, NULL, NULL, SW_SHOWNORMAL);
                 exit(0);
             } else {
-                printf("❌ Update failed.\n");
+                setErrorF("Update failed: Could not download installer");
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
             }
         } else if (_stricmp(argv[1], "init") == 0) {
             runFile("scripts/init.lnx", 0, NULL);
@@ -124,7 +133,9 @@ int main(int argc, char* argv[]) {
                 setVarString("__pkg", argv[2]);
                 runFile("scripts/add.lnx", 0, NULL);
             } else {
-                printf("🐾 Usage: lynx add <package>\n");
+                setErrorF("Usage: lynx add <package>");
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
             }
             return 0;
         } else if (_stricmp(argv[1], "install") == 0) {
@@ -135,7 +146,9 @@ int main(int argc, char* argv[]) {
                 setVarString("__pkg", argv[2]);
                 runFile("scripts/remove.lnx", 0, NULL);
             } else {
-                printf("🐾 Usage: lynx remove <package>\n");
+                setErrorF("Usage: lynx remove <package>");
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
             }
             return 0;
         } else if (_stricmp(argv[1], "search") == 0) {
@@ -143,7 +156,9 @@ int main(int argc, char* argv[]) {
                 setVarString("__term", argv[2]);
                 runFile("scripts/search.lnx", 0, NULL);
             } else {
-                printf("🐾 Usage: lynx search <term>\n");
+                setErrorF("Usage: lynx search <term>");
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
             }
             return 0;
         } else if (_stricmp(argv[1], "update") == 0) {
@@ -159,14 +174,18 @@ int main(int argc, char* argv[]) {
             if (argc >= 3) {
                 format_file(argv[2]);
             } else {
-                printf("🐾 Usage: lynx fmt <file.lnx>\n");
+                setErrorF("Usage: lynx fmt <file.lnx>");
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
             }
             return 0;
         } else if (_stricmp(argv[1], "check") == 0) {
             if (argc >= 3) {
                 check_file(argv[2]);
             } else {
-                printf("🐾 Usage: lynx check <file.lnx>\n");
+                setErrorF("Usage: lynx check <file.lnx>");
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
             }
             return 0;
         } else {
@@ -182,8 +201,10 @@ int main(int argc, char* argv[]) {
                     fclose(test);
                     runFile(argv[1], 0, NULL);
                 } else {
-                    printf("🐾 Unknown command: %s\n", argv[1]);
-                    printf("   Run 'lynx help' for available commands\n");
+                    setErrorF("Unknown command: %s", argv[1]);
+                    fprintf(stderr, "🐾 %s\n", lynx_error);
+                    fprintf(stderr, "   Run 'lynx help' for available commands\n");
+                    clearError();
                 }
             }
             return 0;
@@ -211,6 +232,10 @@ int main(int argc, char* argv[]) {
         } else {
             initScanner(line);
             parse_statement();
+            if (lynx_error) {
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
+            }
         }
     }
 
