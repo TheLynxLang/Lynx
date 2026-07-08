@@ -1,9 +1,9 @@
 Roar "🐾 Searching for: " + __term
 
 Set tempDir = getenv("TEMP")
-Set jsonFile = tempDir + "/packages.json"
+Set jsonFile = tempDir + "\\packages.json"
 
-Run "curl -L -o " + jsonFile + " https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+Run "powershell -command \"Invoke-WebRequest -Uri https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json -OutFile " + jsonFile + "\""
 
 KittyReadFile jsonFile
 Set json = __file_content
@@ -25,4 +25,4 @@ If KittyCheckIfStringContains(json, __term) {
     Roar "❌ No results found for '" + __term + "'"
 }
 
-Run "rm -f " + jsonFile
+Run "del /q " + jsonFile
