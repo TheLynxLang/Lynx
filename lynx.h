@@ -2,6 +2,7 @@
 #define LYNX_H
 
 #include <stdbool.h>
+#include <stdarg.h>
 
 // ─── CONSTANTS ────────────────────────────────────────────────
 #define LYNX_MAX_PATH 4096
@@ -165,7 +166,10 @@ void unload_all_libs();
 
 void clearError();
 void setError(const char* msg, int line, int col);
+void setErrorF(const char* format, ...);
 char* getError();
+const char* tokenTypeToString(LynxTokenType type);
+char* getTokenText(Token t);
 
 void format_file(const char* path);
 void check_file(const char* path);
