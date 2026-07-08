@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include "lynx.h"
 
+char* lynx_error = NULL;
+LynxError lynx_error_state = {0};
+
 #define MAX_VARS 1000
 #define MAX_FUNCS 200
 #define MAX_RECURSION 100
