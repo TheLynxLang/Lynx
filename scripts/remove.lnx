@@ -39,9 +39,9 @@ If __result == 1 {
     KittyWriteFile "lynx.lock" newLock
 }
 
-Run "rm -rf libs/" + __pkg
+Run "rmdir /s /q libs\\" + __pkg
 
-Set cachePath = getenv("USERPROFILE") + "/.lynx/cache/" + __pkg + "_*.tar.gz"
-Run "rm -f " + cachePath
+Set cachePath = getenv("USERPROFILE") + "\\.lynx\\cache\\" + __pkg + "_*.tar.gz"
+Run "del /q " + cachePath
 
 Roar "✅ Removed " + __pkg
