@@ -2,7 +2,7 @@ Roar "🐾 Installing dependencies..."
 
 Paw "libs"
 
-Set cacheDir = getenv("USERPROFILE") + "/.lynx/cache/"
+Set cacheDir = getenv("USERPROFILE") + "\\.lynx\\cache\\"
 Paw cacheDir
 
 If KittyFileExists("lynx.lock") {
@@ -23,21 +23,21 @@ If KittyFileExists("lynx.lock") {
             Roar "📦 Installing " + pkg + " (" + version + ")"
             
             Set url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + pkg + "/" + version + "/package.tar.gz"
-            Set dest = "libs/" + pkg + ".tar.gz"
+            Set dest = "libs\\" + pkg + ".tar.gz"
             Set cacheFile = cacheDir + pkg + "_" + version + ".tar.gz"
             
             KittyFileExists cacheFile
             If __result == 1 {
                 Roar "💾 Using cached: " + pkg
-                Run "cp " + cacheFile + " " + dest
+                Run "copy " + cacheFile + " " + dest
             } Else {
-                Run "curl -L -o " + dest + " " + url
-                Run "cp " + dest + " " + cacheFile
+                Run "powershell -command \"Invoke-WebRequest -Uri " + url + " -OutFile " + dest + "\""
+                Run "copy " + dest + " " + cacheFile
             }
             
-            Run "mkdir -p libs/" + pkg
-            Run "tar -xzf " + dest + " -C libs/" + pkg + "/"
-            Run "rm " + dest
+            Run "mkdir libs\\" + pkg + " 2>nul"
+            Run "tar -xzf " + dest + " -C libs\\" + pkg + "\\"
+            Run "del " + dest
             
             Roar "✅ Installed " + pkg
         }
@@ -80,29 +80,29 @@ For i = 0 To __result - 1 {
             Roar "📦 Installing " + pkg + " (" + version + ")"
             
             Set url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + pkg + "/" + version + "/package.tar.gz"
-            Set dest = "libs/" + pkg + ".tar.gz"
+            Set dest = "libs\\" + pkg + ".tar.gz"
             Set cacheFile = cacheDir + pkg + "_" + version + ".tar.gz"
             
             KittyFileExists cacheFile
             If __result == 1 {
                 Roar "💾 Using cached: " + pkg
-                Run "cp " + cacheFile + " " + dest
+                Run "copy " + cacheFile + " " + dest
             } Else {
-                Run "curl -L -o " + dest + " " + url
-                Run "cp " + dest + " " + cacheFile
+                Run "powershell -command \"Invoke-WebRequest -Uri " + url + " -OutFile " + dest + "\""
+                Run "copy " + dest + " " + cacheFile
             }
             
-            Run "mkdir -p libs/" + pkg
-            Run "tar -xzf " + dest + " -C libs/" + pkg + "/"
-            Run "rm " + dest
+            Run "mkdir libs\\" + pkg + " 2>nul"
+            Run "tar -xzf " + dest + " -C libs\\" + pkg + "\\"
+            Run "del " + dest
             
             Roar "✅ Installed " + pkg
             
             lock_content = lock_content + pkg + " = \"" + version + "\"\n"
             installed_packages = installed_packages + pkg + " "
             
-            If KittyFileExists("libs/" + pkg + "/lynx.toml") {
-                KittyReadFile "libs/" + pkg + "/lynx.toml"
+            If KittyFileExists("libs\\" + pkg + "\\lynx.toml") {
+                KittyReadFile "libs\\" + pkg + "\\lynx.toml"
                 Set pkg_content = __file_content
                 Set pkg_lines = KittySplitString(pkg_content, "\n")
                 Set pkg_in_deps = 0
@@ -129,20 +129,20 @@ For i = 0 To __result - 1 {
                             If KittyCheckIfStringContains(installed_packages, dep_pkg) == 0 {
                                 Roar "📦 Transitive dep: " + dep_pkg + " (" + dep_version + ")"
                                 Set dep_url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + dep_pkg + "/" + dep_version + "/package.tar.gz"
-                                Set dep_dest = "libs/" + dep_pkg + ".tar.gz"
+                                Set dep_dest = "libs\\" + dep_pkg + ".tar.gz"
                                 Set dep_cache = cacheDir + dep_pkg + "_" + dep_version + ".tar.gz"
                                 
                                 KittyFileExists dep_cache
                                 If __result == 1 {
-                                    Run "cp " + dep_cache + " " + dep_dest
+                                    Run "copy " + dep_cache + " " + dep_dest
                                 } Else {
-                                    Run "curl -L -o " + dep_dest + " " + dep_url
-                                    Run "cp " + dep_dest + " " + dep_cache
+                                    Run "powershell -command \"Invoke-WebRequest -Uri " + dep_url + " -OutFile " + dep_dest + "\""
+                                    Run "copy " + dep_dest + " " + dep_cache
                                 }
                                 
-                                Run "mkdir -p libs/" + dep_pkg
-                                Run "tar -xzf " + dep_dest + " -C libs/" + dep_pkg + "/"
-                                Run "rm " + dep_dest
+                                Run "mkdir libs\\" + dep_pkg + " 2>nul"
+                                Run "tar -xzf " + dep_dest + " -C libs\\" + dep_pkg + "\\"
+                                Run "del " + dep_dest
                                 
                                 lock_content = lock_content + dep_pkg + " = \"" + dep_version + "\"\n"
                                 installed_packages = installed_packages + dep_pkg + " "
