@@ -1,15 +1,67 @@
-# search.lnx – Search registry
-Roar "🐾 Searching for: " + __term
+# 🐾 Lynx Search Script - Searches registry
+# Updated: Full registry integration with API
 
-# Fetch packages.json
-Run "curl -L -o /tmp/packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
-KittyReadFile "/tmp/packages.json"
-Set json = KittyReadFile("/tmp/packages.json")
+Set term = __term
 
-# Simple string search
-If KittyCheckIfStringContains(json, __term) {
-    Roar "✅ Found:"
-    Run "cat /tmp/packages.json | grep -i " + __term
-} Else {
-    Roar "❌ No results found"
+If Len(term) == 0 {
+    Roar "🐾 Usage: lynx search <term>"
+    Exit
 }
+
+Roar "🔍 Searching registry for '" + term + "'..."
+
+# Query registry API (GitHub search)
+Set registryIndex = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+
+Set cmd = "curl -s " + registryIndex + " > temp_index.json"
+Run cmd
+
+KittyReadFile "temp_index.json"
+Set index = __file_content
+
+# Parse and filter packages (simplified - assumes JSON array)
+# Real implementation would use a JSON parser in Lynx
+Set packages = KittySplitString(index "\n")
+Set count = 0
+Set results = ""
+
+Roar "\n📦 Results:"
+Roar ""
+
+For i = 0 To __result - 1 {
+    Set line = __result[i]
+    
+    # Very crude JSON parsing - just check if term appears anywhere
+    If KittyCheckIfStringContains(line term) {
+        # Try to extract name and version
+        Set parts = KittySplitString(line ":")
+        Set name = parts[0]
+        Set version = parts[1]
+        
+        # Clean up quotes and braces
+        Set name = KittyReplaceString(name "\"", "")
+        Set name = KittyReplaceString(name "{", "")
+        Set name = Trim(name)
+        
+        Set version = KittyReplaceString(version "\"", "")
+        Set version = KittyReplaceString(version "}", "")
+        Set version = KittyReplaceString(version ",", "")
+        Set version = Trim(version)
+        
+        If Len(name) > 0 && Len(name) < 50 {
+            Roar "   📦 " + name + "  (" + version + ")"
+            Set count = count + 1
+        }
+    }
+}
+
+If count == 0 {
+    Roar "   ❌ No packages found matching '" + term + "'"
+} Else {
+    Roar ""
+    Roar "✅ " + count + " package(s) found"
+    Roar "   Use 'lynx add <package>' to install"
+}
+
+# Cleanup
+KittyRemoveFile "temp_index.json"
