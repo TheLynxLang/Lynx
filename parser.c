@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <stdarg.h>
 #include "lynx.h"
 
 // ─── GLOBALS ──────────────────────────────────────────────────
@@ -45,6 +46,17 @@ void setError(const char* msg, int line, int col) {
     }
 }
 
+void setErrorF(const char* format, ...) {
+    char buffer[512];
+    va_list args;
+    va_start(args, format);
+    vsnprintf(buffer, sizeof(buffer), format, args);
+    va_end(args);
+    
+    Token t = peekToken();
+    setError(buffer, t.line, t.col);
+}
+
 // getError() is defined in memory.c - do not define here
 
 // ─── PARSING ──────────────────────────────────────────────────────
@@ -57,7 +69,6 @@ double parse_primary() {
         snprintf(name, t.length + 1, "%s", t.start);
         if (peekToken().type == TOKEN_LPAREN) {
             scanToken(); 
-            // Parse arguments
             int argCount = 0;
             double args[10];
             while (peekToken().type != TOKEN_RPAREN && peekToken().type != TOKEN_EOF) {
@@ -77,10 +88,29 @@ double parse_primary() {
     }
     if (t.type == TOKEN_LPAREN) {
         double val = parse_expression();
-        scanToken();
-        return val;
+        if (peekToken().type == TOKEN_RPAREN) {
+            scanToken();
+            return val;
+        } else {
+            Token next = peekToken();
+            char* text = getTokenText(next);
+            setErrorF("Expected ')' after expression, got '%s' (type: %s)", 
+                      text, tokenTypeToString(next.type));
+            return 0;
+        }
     }
-    if (t.type == TOKEN_NOT) return !parse_primary();
+    if (t.type == TOKEN_NOT) {
+        Token next = peekToken();
+        if (next.type == TOKEN_EOF) {
+            setErrorF("Expected expression after 'Not'");
+            return 0;
+        }
+        return !parse_primary();
+    }
+    
+    char* text = getTokenText(t);
+    setErrorF("Expected number, identifier, string, or '(' got '%s' (type: %s)", 
+              text, tokenTypeToString(t.type));
     return 0;
 }
 
@@ -94,14 +124,14 @@ double parse_term() {
             case TOKEN_STAR: value *= right; break;
             case TOKEN_SLASH:
                 if (right == 0) {
-                    setError("Division by zero", op.line, op.col);
+                    setErrorF("Division by zero at line %d", op.line);
                     return 0;
                 }
                 value /= right;
                 break;
             case TOKEN_MODULO:
                 if (right == 0) {
-                    setError("Modulo by zero", op.line, op.col);
+                    setErrorF("Modulo by zero at line %d", op.line);
                     return 0;
                 }
                 value = (double)((int)value % (int)right);
@@ -142,6 +172,9 @@ int parse_comparison() {
             default: return 0;
         }
     }
+    char* text = getTokenText(op);
+    setErrorF("Expected comparison operator (==, !=, >, <, >=, <=), got '%s' (type: %s)", 
+              text, tokenTypeToString(op.type));
     return 0;
 }
 
@@ -160,32 +193,70 @@ int parse_logic_expression() {
 
 void parse_block() {
     Token brace = scanToken();
-    if (brace.type != TOKEN_LBRACE) return;
-    while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF)
+    if (brace.type != TOKEN_LBRACE) {
+        char* text = getTokenText(brace);
+        setErrorF("Expected '{' at start of block, got '%s' (type: %s)", 
+                  text, tokenTypeToString(brace.type));
+        return;
+    }
+    while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF) {
         parse_statement();
-    scanToken();
+        if (lynx_error) break;
+    }
+    if (peekToken().type == TOKEN_RBRACE) {
+        scanToken();
+    } else {
+        setErrorF("Expected '}' at end of block, got EOF");
+    }
 }
 
 void parse_for_loop() {
     Token varToken = scanToken();
-    if (varToken.type != TOKEN_IDENTIFIER) return;
+    if (varToken.type != TOKEN_IDENTIFIER) {
+        char* text = getTokenText(varToken);
+        setErrorF("For loop expects variable name, got '%s' (type: %s)", 
+                  text, tokenTypeToString(varToken.type));
+        return;
+    }
     char varName[64];
     snprintf(varName, varToken.length + 1, "%s", varToken.start);
+    
     Token eq = scanToken();
-    if (eq.type != TOKEN_EQUAL) return;
+    if (eq.type != TOKEN_EQUAL) {
+        char* text = getTokenText(eq);
+        setErrorF("For loop expects '=' after variable, got '%s' (type: %s)", 
+                  text, tokenTypeToString(eq.type));
+        return;
+    }
     double start = parse_expression();
     setVar(varName, start);
+    
     Token toToken = scanToken();
-    if (toToken.type != TOKEN_IDENTIFIER || strncmp(toToken.start, "To", 2) != 0) return;
+    if (toToken.type != TOKEN_IDENTIFIER || strncmp(toToken.start, "To", 2) != 0) {
+        char* text = getTokenText(toToken);
+        setErrorF("For loop expects 'To' after start value, got '%s' (type: %s)", 
+                  text, tokenTypeToString(toToken.type));
+        return;
+    }
     double end = parse_expression();
+    
     Token lbrace = scanToken();
-    if (lbrace.type != TOKEN_LBRACE) return;
+    if (lbrace.type != TOKEN_LBRACE) {
+        char* text = getTokenText(lbrace);
+        setErrorF("For loop expects '{' after range, got '%s' (type: %s)", 
+                  text, tokenTypeToString(lbrace.type));
+        return;
+    }
+    
     Scanner loopStart = scanner;
     for (double i = start; i <= end; i++) {
         setVar(varName, i);
         scanner = loopStart;
-        while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF)
+        while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF) {
             parse_statement();
+            if (lynx_error) break;
+        }
+        if (lynx_error) break;
     }
     scanToken();
 }
@@ -193,8 +264,15 @@ void parse_for_loop() {
 void parse_while_loop() {
     Scanner condStart = scanner;
     int condition = parse_logic_expression();
+    if (lynx_error) return;
+    
     Token lbrace = scanToken();
-    if (lbrace.type != TOKEN_LBRACE) return;
+    if (lbrace.type != TOKEN_LBRACE) {
+        char* text = getTokenText(lbrace);
+        setErrorF("While loop expects '{' after condition, got '%s' (type: %s)", 
+                  text, tokenTypeToString(lbrace.type));
+        return;
+    }
     
     Scanner bodyStart = scanner;
     int braceDepth = 1;
@@ -210,9 +288,13 @@ void parse_while_loop() {
     strncpy(body, bodyStart.start, bodyLen);
     body[bodyLen] = '\0';
     
-    while (condition) {
+    while (condition && !lynx_error) {
         initScanner(body);
-        while (peekToken().type != TOKEN_EOF) parse_statement();
+        while (peekToken().type != TOKEN_EOF) {
+            parse_statement();
+            if (lynx_error) break;
+        }
+        if (lynx_error) break;
         initScanner(condStart.start);
         condition = parse_logic_expression();
     }
@@ -221,11 +303,23 @@ void parse_while_loop() {
 
 void parse_function_def() {
     Token nameToken = scanToken();
-    if (nameToken.type != TOKEN_IDENTIFIER) return;
+    if (nameToken.type != TOKEN_IDENTIFIER) {
+        char* text = getTokenText(nameToken);
+        setErrorF("Function definition expects function name, got '%s' (type: %s)", 
+                  text, tokenTypeToString(nameToken.type));
+        return;
+    }
     char funcName[64];
     snprintf(funcName, nameToken.length + 1, "%s", nameToken.start);
+    
     Token lparen = scanToken();
-    if (lparen.type != TOKEN_LPAREN) return;
+    if (lparen.type != TOKEN_LPAREN) {
+        char* text = getTokenText(lparen);
+        setErrorF("Function definition expects '(' after function name, got '%s' (type: %s)", 
+                  text, tokenTypeToString(lparen.type));
+        return;
+    }
+    
     char params[10][64];
     int paramCount = 0;
     while (peekToken().type != TOKEN_RPAREN && peekToken().type != TOKEN_EOF) {
@@ -233,13 +327,30 @@ void parse_function_def() {
         if (param.type == TOKEN_IDENTIFIER) {
             snprintf(params[paramCount], param.length + 1, "%s", param.start);
             paramCount++;
+        } else {
+            char* text = getTokenText(param);
+            setErrorF("Function parameter must be identifier, got '%s' (type: %s)", 
+                      text, tokenTypeToString(param.type));
+            return;
         }
         if (peekToken().type == TOKEN_COMMA) scanToken();
     }
-    scanToken();
+    if (peekToken().type == TOKEN_RPAREN) {
+        scanToken();
+    } else {
+        setErrorF("Function definition expects ')' after parameters");
+        return;
+    }
+    
     Scanner bodyStart = scanner;
     Token brace = scanToken();
-    if (brace.type != TOKEN_LBRACE) return;
+    if (brace.type != TOKEN_LBRACE) {
+        char* text = getTokenText(brace);
+        setErrorF("Function definition expects '{' after parameters, got '%s' (type: %s)", 
+                  text, tokenTypeToString(brace.type));
+        return;
+    }
+    
     int braceCount = 1;
     while (braceCount > 0 && peekToken().type != TOKEN_EOF) {
         Token t = scanToken();
@@ -257,7 +368,9 @@ void parse_function_def() {
 void format_file(const char* path) {
     FILE* f = fopen(path, "r");
     if (!f) {
-        printf("🐾 Error: Cannot open %s\n", path);
+        setErrorF("Cannot open file '%s' for formatting", path);
+        printf("%s\n", lynx_error);
+        clearError();
         return;
     }
 
@@ -300,7 +413,9 @@ void format_file(const char* path) {
         fclose(f);
         printf("🐾 Formatted %s\n", path);
     } else {
-        printf("🐾 Error: Cannot write to %s\n", path);
+        setErrorF("Cannot write to file '%s'", path);
+        printf("%s\n", lynx_error);
+        clearError();
     }
 
     free(src);
@@ -310,7 +425,9 @@ void format_file(const char* path) {
 void check_file(const char* path) {
     FILE* f = fopen(path, "r");
     if (!f) {
-        printf("🐾 Error: Cannot open %s\n", path);
+        setErrorF("Cannot open file '%s' for checking", path);
+        printf("%s\n", lynx_error);
+        clearError();
         return;
     }
 
@@ -328,13 +445,14 @@ void check_file(const char* path) {
     initScanner(src);
     while (peekToken().type != TOKEN_EOF) {
         parse_statement();
+        if (lynx_error) break;
     }
 
     if (lynx_error) {
         printf("🐾 Error: %s\n", lynx_error);
         clearError();
         free(src);
-        exit(1);
+        return;
     } else {
         printf("✅ No errors found in %s\n", path);
     }
@@ -352,6 +470,8 @@ void parse_statement() {
 
     if (t.type == TOKEN_IF) {
         int cond = parse_logic_expression();
+        if (lynx_error) return;
+        
         if (cond) {
             parse_block();
         } else {
@@ -378,4 +498,12 @@ void parse_statement() {
     pawcom_parse_statement(t);
 
     if (t.type == TOKEN_HELP || t.type == TOKEN_EOF) return;
+    
+    // If we get here, nothing handled it
+    char* text = getTokenText(t);
+    const char* typeName = tokenTypeToString(t.type);
+    setErrorF("Unexpected '%s' (type: %s) at line %d. Expected a command like Roar, Set, If, Func, etc.",
+              text, typeName, t.line);
+    printf("%s\n", lynx_error);
+    clearError();
 }
