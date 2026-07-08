@@ -62,6 +62,85 @@ static Token makeToken(LynxTokenType type) {
     return token;
 }
 
+const char* tokenTypeToString(LynxTokenType type) {
+    switch (type) {
+        case TOKEN_SET: return "Set";
+        case TOKEN_ROAR: return "Roar";
+        case TOKEN_HUNT: return "Hunt";
+        case TOKEN_STALK_PACK: return "Stalk_Pack";
+        case TOKEN_POUNCE: return "Pounce";
+        case TOKEN_IF: return "If";
+        case TOKEN_ELSE: return "Else";
+        case TOKEN_LOAD_LIB: return "LoadLib";
+        case TOKEN_FUNC: return "Func";
+        case TOKEN_RETURN: return "Return";
+        case TOKEN_FOR: return "For";
+        case TOKEN_WHILE: return "While";
+        case TOKEN_BREAK: return "Break";
+        case TOKEN_CONTINUE: return "Continue";
+        case TOKEN_AND: return "And";
+        case TOKEN_OR: return "Or";
+        case TOKEN_NOT: return "Not";
+        case TOKEN_RUN: return "Run";
+        case TOKEN_TRY: return "Try";
+        case TOKEN_CATCH: return "Catch";
+        case TOKEN_ARGV: return "Argv";
+        case TOKEN_EXPORT: return "Export";
+        case TOKEN_KITTY_WRITE_FILE: return "KittyWriteFile";
+        case TOKEN_KITTY_READ_FILE: return "KittyReadFile";
+        case TOKEN_PAW: return "Paw";
+        case TOKEN_KITTY_FILE_EXISTS: return "KittyFileExists";
+        case TOKEN_KITTY_LIST_FILES: return "KittyListFiles";
+        case TOKEN_KITTY_REMOVE_FILE: return "KittyRemoveFile";
+        case TOKEN_KITTY_READ_DIR: return "KittyReadDir";
+        case TOKEN_KITTY_PORT: return "KittyPort";
+        case TOKEN_GET_ERROR: return "GetError";
+        case TOKEN_STRING_SPLIT: return "KittySplitString";
+        case TOKEN_STRING_CONTAINS: return "KittyCheckIfStringContains";
+        case TOKEN_STRING_REPLACE: return "KittyReplaceString";
+        case TOKEN_TRIM: return "Trim";
+        case TOKEN_LEN: return "Len";
+        case TOKEN_IDENTIFIER: return "identifier";
+        case TOKEN_STRING: return "string literal";
+        case TOKEN_NUMBER: return "number";
+        case TOKEN_EQUAL: return "=";
+        case TOKEN_PLUS: return "+";
+        case TOKEN_MINUS: return "-";
+        case TOKEN_STAR: return "*";
+        case TOKEN_SLASH: return "/";
+        case TOKEN_MODULO: return "%";
+        case TOKEN_INCREMENT: return "++";
+        case TOKEN_DECREMENT: return "--";
+        case TOKEN_EQ: return "==";
+        case TOKEN_NE: return "!=";
+        case TOKEN_GT: return ">";
+        case TOKEN_LT: return "<";
+        case TOKEN_GE: return ">=";
+        case TOKEN_LE: return "<=";
+        case TOKEN_LBRACE: return "{";
+        case TOKEN_RBRACE: return "}";
+        case TOKEN_LPAREN: return "(";
+        case TOKEN_RPAREN: return ")";
+        case TOKEN_LBRACKET: return "[";
+        case TOKEN_RBRACKET: return "]";
+        case TOKEN_COMMA: return ",";
+        case TOKEN_COLON: return ":";
+        case TOKEN_EOF: return "EOF";
+        case TOKEN_ERROR: return "error token";
+        default: return "unknown";
+    }
+}
+
+char* getTokenText(Token t) {
+    static char buffer[256];
+    if (t.length < 255) {
+        snprintf(buffer, t.length + 1, "%s", t.start);
+    } else {
+        snprintf(buffer, sizeof(buffer), "%s...", t.start);
+    }
+    return buffer;
+}
+
 static LynxTokenType checkKeyword() {
     const char* s = scanner.start;
     int len = (int)(scanner.current - scanner.start);
@@ -203,11 +282,19 @@ Token scanToken() {
                 }
                 advance();
             }
-            if (isAtEnd()) return makeToken(TOKEN_ERROR);
+            if (isAtEnd()) {
+                Token t = makeToken(TOKEN_ERROR);
+                setErrorF("Unterminated string literal", t.line, t.col);
+                return t;
+            }
             advance();
             return makeToken(TOKEN_STRING);
         }
     }
 
-    return makeToken(TOKEN_ERROR);
+    Token t = makeToken(TOKEN_ERROR);
+    char msg[256];
+    snprintf(msg, sizeof(msg), "Unexpected character '%c'", c);
+    setErrorF(msg, t.line, t.col);
+    return t;
 }
