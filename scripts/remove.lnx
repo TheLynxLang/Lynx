@@ -1,70 +1,47 @@
-# 🐾 Lynx Remove Script - Removes a package
-# Updated: Full cleanup of package directory
+Roar "🐾 Removing package: " + __pkg
 
-Set pkgName = __pkg
-
-If Len(pkgName) == 0 {
-    Roar "🐾 Usage: lynx remove <package>"
-    Exit
-}
-
-Roar "🐾 Removing " + pkgName + "..."
-
-# Remove from lynx.toml
 KittyReadFile "lynx.toml"
-Set toml = __file_content
+Set content = __file_content
 
-# Simple removal - remove lines containing the package name
-Set lines = KittySplitString(toml "\n")
-Set newToml = ""
 Set found = 0
+Set new_content = ""
+Set lines = KittySplitString(content, "\n")
 
 For i = 0 To __result - 1 {
     Set line = __result[i]
-    If KittyCheckIfStringContains(line pkgName) && KittyCheckIfStringContains(line "=") {
+    If KittyCheckIfStringContains(line, __pkg + " = ") {
         Set found = 1
-        Roar "📝 Removed from lynx.toml"
         Continue
     }
-    Set newToml = newToml + line + "\n"
+    Set new_content = new_content + line + "\n"
 }
 
 If found == 0 {
-    Roar "⚠️ " + pkgName + " not found in dependencies"
+    Roar "⚠️ " + __pkg + " not found in dependencies"
     Exit
 }
 
-KittyWriteFile "lynx.toml" newToml
+KittyWriteFile "lynx.toml" new_content
 
-# Remove from lockfile if exists
 KittyFileExists "lynx.lock"
 If __result == 1 {
     KittyReadFile "lynx.lock"
-    Set lines = KittySplitString(__file_content "\n")
+    Set lockContent = __file_content
     Set newLock = ""
-    
+    Set lockLines = KittySplitString(lockContent, "\n")
     For i = 0 To __result - 1 {
         Set line = __result[i]
-        If KittyCheckIfStringContains(line pkgName) && KittyCheckIfStringContains(line "=") {
+        If KittyCheckIfStringContains(line, __pkg + " = ") {
             Continue
         }
         Set newLock = newLock + line + "\n"
     }
     KittyWriteFile "lynx.lock" newLock
-    Roar "📝 Updated lockfile"
 }
 
-# Remove package directory
-Set libPath = "libs/" + pkgName
-KittyFileExists libPath
-If __result == 1 {
-    # Remove directory (Windows: rmdir /s, Linux: rm -rf)
-    Run "rm -rf " + libPath
-    Roar "🗑️ Removed " + libPath
-}
+Run "rm -rf libs/" + __pkg
 
-# Remove from cache
-Set cachePath = getenv("USERPROFILE") + "/.lynx/cache/" + pkgName + "_*.tar.gz"
+Set cachePath = getenv("USERPROFILE") + "/.lynx/cache/" + __pkg + "_*.tar.gz"
 Run "rm -f " + cachePath
 
-Roar "✅ " + pkgName + " completely removed"
+Roar "✅ Removed " + __pkg
