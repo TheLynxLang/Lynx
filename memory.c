@@ -3,9 +3,11 @@
 #include <stdlib.h>
 #include "lynx.h"
 
+// ─── GLOBAL DEFINITIONS ──────────────────────────────────────
 char* lynx_error = NULL;
 LynxError lynx_error_state = {0};
 
+// ─── CONSTANTS ────────────────────────────────────────────────
 #define MAX_VARS 1000
 #define MAX_FUNCS 200
 #define MAX_RECURSION 100
@@ -28,6 +30,7 @@ int funcCount = 0;
 // ─── RECURSION GUARD ────────────────────────────────────────────
 static int recursionDepth = 0;
 
+// ─── ERROR STATE (storage only) ─────────────────────────────────
 char* getError() {
     if (lynx_error_state.message) {
         return strdup(lynx_error_state.message);
@@ -356,6 +359,12 @@ int callFunction(const char* name) {
             printf("🐾 Called function: %s\n", name);
             
             Variable* savedDen = malloc(varCount * sizeof(Variable));
+            if (!savedDen) {
+                setError("Out of memory", 0, 0);
+                recursionDepth--;
+                return 0;
+            }
+            
             int savedVarCount = varCount;
             for (int j = 0; j < varCount; j++) {
                 savedDen[j] = den[j];
