@@ -46,10 +46,8 @@ void runFile(const char* path, int argc, char** argv) {
     FILE* file = NULL;
     char fullPath[LYNX_MAX_PATH] = {0};
     
-    // 1. Current working directory
     file = fopen(cleanPath, "rb");
     
-    // 2. Lynx installation directory
     if (!file) {
         char exePath[LYNX_MAX_PATH];
         GetModuleFileNameA(NULL, exePath, LYNX_MAX_PATH);
@@ -61,7 +59,6 @@ void runFile(const char* path, int argc, char** argv) {
         }
     }
     
-    // 3. %APPDATA%\LynxLang\std\
     if (!file) {
         char stdPath[LYNX_MAX_PATH];
         snprintf(stdPath, LYNX_MAX_PATH, "%s\\LynxLang\\std\\%s", getenv("APPDATA"), cleanPath);
@@ -84,7 +81,7 @@ void runFile(const char* path, int argc, char** argv) {
         buf[size] = '\0';
         fclose(file);
 
-        // Strip UTF-8 BOM (EF BB BF)
+        // Strip UTF-8 BOM
         if (size >= 3 &&
             (unsigned char)buf[0] == 0xEF &&
             (unsigned char)buf[1] == 0xBB &&
