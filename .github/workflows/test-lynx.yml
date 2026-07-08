@@ -18,56 +18,308 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup -y
 
+      - name: Install MinGW (if needed)
+        run: |
+          echo "Checking gcc..."
+          gcc --version || echo "gcc not found, installing..."
+          if (!(Get-Command gcc -ErrorAction SilentlyContinue)) {
+            choco install mingw -y
+          }
+
       - name: Build Lynx
         run: |
+          echo "=== BUILDING LYNX ==="
+          echo "Current directory: $(pwd)"
+          echo "Files in current directory:"
+          dir
+          
+          echo ""
+          echo "Compiling..."
           gcc main.c scanner.c parser.c memory.c pawcom.c libloader.c -o lynx.exe -lurlmon -luser32
+          
+          if ($LASTEXITCODE -ne 0) {
+            echo "❌ Compilation failed!"
+            exit 1
+          }
+          
+          echo "✅ Compilation successful!"
+          echo "Files after build:"
+          dir *.exe
 
       - name: Copy files for installer
         run: |
-          mkdir installer\files
+          echo "=== COPYING FILES FOR INSTALLER ==="
+          mkdir installer\files -Force
+          
+          echo "Copying lynx.exe..."
           copy lynx.exe installer\files\
-          xcopy std installer\files\std /E /I
-          xcopy scripts installer\files\scripts /E /I
+          
+          echo "Copying std folder..."
+          if (Test-Path std) {
+            xcopy std installer\files\std /E /I /Y
+          } else {
+            echo "⚠️ std folder not found!"
+            mkdir installer\files\std
+          }
+          
+          echo "Copying scripts folder..."
+          if (Test-Path scripts) {
+            xcopy scripts installer\files\scripts /E /I /Y
+            echo "Scripts copied:"
+            dir installer\files\scripts
+          } else {
+            echo "❌ scripts folder not found!"
+            exit 1
+          }
+          
+          echo "Files in installer\files:"
+          dir installer\files -Recurse
 
       - name: Build installer
         run: |
+          echo "=== BUILDING INSTALLER ==="
+          echo "Checking Inno Setup..."
+          if (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+            echo "Inno Setup found"
+          } else {
+            echo "❌ Inno Setup not found!"
+            exit 1
+          }
+          
+          echo "Installer script content:"
+          Get-Content installer\Lynx.iss
+          
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\Lynx.iss
+          
+          if ($LASTEXITCODE -ne 0) {
+            echo "❌ Installer build failed!"
+            exit 1
+          }
+          
+          echo "✅ Installer built successfully!"
 
       - name: List installer folder (debug)
         run: |
-          dir installer
+          echo "=== INSTALLER FOLDER CONTENTS ==="
+          dir installer -Recurse
+          
+          echo ""
+          echo "Looking for installer exe..."
+          Get-ChildItem -Path installer -Recurse -Filter "*.exe" | ForEach-Object {
+            echo "Found: $($_.FullName)"
+          }
 
       - name: Run installer silently
         run: |
-          cmd /c installer\installer\Lynx-1.4.0-installer.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+          echo "=== RUNNING INSTALLER ==="
+          $installerPath = Get-ChildItem -Path installer -Recurse -Filter "Lynx-*.exe" | Select-Object -First 1
+          
+          if ($installerPath -eq $null) {
+            echo "❌ Installer exe not found!"
+            dir installer -Recurse
+            exit 1
+          }
+          
+          echo "Installer path: $($installerPath.FullName)"
+          echo "Installing..."
+          
+          Start-Process -FilePath $installerPath.FullName -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=install.log" -Wait
+          
+          if ($LASTEXITCODE -ne 0) {
+            echo "⚠️ Installer exit code: $LASTEXITCODE"
+            echo "Install log:"
+            if (Test-Path install.log) {
+              Get-Content install.log
+            }
+          }
+          
+          echo "✅ Installer ran"
+
+      - name: Verify installation
+        run: |
+          echo "=== VERIFYING INSTALLATION ==="
+          echo "Checking if lynx.exe exists in Program Files..."
+          
+          $lynxPath = "C:\Program Files\Lynx\lynx.exe"
+          if (Test-Path $lynxPath) {
+            echo "✅ lynx.exe found at $lynxPath"
+            echo "File info:"
+            dir $lynxPath
+          } else {
+            echo "❌ lynx.exe NOT found at $lynxPath"
+            echo "Searching for lynx.exe..."
+            Get-ChildItem -Path "C:\Program Files" -Recurse -Filter "lynx.exe" -ErrorAction SilentlyContinue
+            exit 1
+          }
+          
+          echo ""
+          echo "Checking scripts folder..."
+          $scriptsPath = "C:\Program Files\Lynx\scripts"
+          if (Test-Path $scriptsPath) {
+            echo "✅ scripts folder found"
+            echo "Scripts:"
+            dir $scriptsPath
+          } else {
+            echo "⚠️ scripts folder NOT found at $scriptsPath"
+          }
 
       - name: Test Lynx commands
         run: |
-          C:\"Program Files"\Lynx\lynx.exe --version
-          C:\"Program Files"\Lynx\lynx.exe help
+          echo "=== TESTING LYNX COMMANDS ==="
+          $lynx = "C:\Program Files\Lynx\lynx.exe"
+          
+          echo ""
+          echo "1. Testing --version..."
+          & $lynx --version
+          if ($LASTEXITCODE -ne 0) { echo "⚠️ Exit code: $LASTEXITCODE" }
+          
+          echo ""
+          echo "2. Testing help..."
+          & $lynx help
+          if ($LASTEXITCODE -ne 0) { echo "⚠️ Exit code: $LASTEXITCODE" }
+          
+          echo ""
+          echo "3. Testing init..."
+          & $lynx init
+          if ($LASTEXITCODE -ne 0) { echo "⚠️ Exit code: $LASTEXITCODE" }
+          
+          echo ""
+          echo "4. Checking created files after init..."
+          if (Test-Path "lynx.toml") {
+            echo "✅ lynx.toml created"
+            Get-Content lynx.toml
+          } else {
+            echo "❌ lynx.toml NOT created"
+          }
+          
+          if (Test-Path "src/main.lnx") {
+            echo "✅ src/main.lnx created"
+            Get-Content src/main.lnx
+          } else {
+            echo "❌ src/main.lnx NOT created"
+          }
+          
+          if (Test-Path "lynx.lock") {
+            echo "✅ lynx.lock created"
+          } else {
+            echo "❌ lynx.lock NOT created"
+          }
+          
+          echo ""
+          echo "5. Testing add meowsys..."
+          & $lynx add meowsys
+          if ($LASTEXITCODE -ne 0) { echo "⚠️ Exit code: $LASTEXITCODE" }
+          
+          echo ""
+          echo "6. Testing install..."
+          & $lynx install
+          if ($LASTEXITCODE -ne 0) { echo "⚠️ Exit code: $LASTEXITCODE" }
+          
+          echo ""
+          echo "7. Testing build..."
+          & $lynx build
+          if ($LASTEXITCODE -ne 0) { echo "⚠️ Exit code: $LASTEXITCODE" }
+          
+          echo ""
+          echo "8. Testing files (should show error - not a real command)..."
+          & $lynx files 2>&1
+          
+          echo ""
+          echo "9. Testing cat lynx.toml (should show error)..."
+          & $lynx cat lynx.toml 2>&1
+          
+          echo ""
+          echo "10. Testing project info (should show error)..."
+          & $lynx project info 2>&1
+          
+          echo ""
+          echo "11. Testing list pkgs (should show error)..."
+          & $lynx list pkgs 2>&1
+          
+          echo ""
+          echo "12. Testing list registry (should show error)..."
+          & $lynx list registry 2>&1
+          
+          echo ""
+          echo "13. Testing search meowsys..."
+          & $lynx search meowsys
+          if ($LASTEXITCODE -ne 0) { echo "⚠️ Exit code: $LASTEXITCODE" }
+          
+          echo ""
+          echo "14. Testing update..."
+          & $lynx update
+          if ($LASTEXITCODE -ne 0) { echo "⚠️ Exit code: $LASTEXITCODE" }
+          
+          echo ""
+          echo "15. Testing remove meowsys..."
+          & $lynx remove meowsys
+          if ($LASTEXITCODE -ne 0) { echo "⚠️ Exit code: $LASTEXITCODE" }
+          
+          echo ""
+          echo "16. Testing publish..."
+          & $lynx publish
+          if ($LASTEXITCODE -ne 0) { echo "⚠️ Exit code: $LASTEXITCODE" }
+          
+          echo ""
+          echo "17. Testing fmt src/main.lnx..."
+          & $lynx fmt src/main.lnx
+          if ($LASTEXITCODE -ne 0) { echo "⚠️ Exit code: $LASTEXITCODE" }
+          
+          echo ""
+          echo "18. Testing check src/main.lnx..."
+          & $lynx check src/main.lnx
+          if ($LASTEXITCODE -ne 0) { echo "⚠️ Exit code: $LASTEXITCODE" }
 
-          C:\"Program Files"\Lynx\lynx.exe init
-          C:\"Program Files"\Lynx\lynx.exe add meowsys
-          C:\"Program Files"\Lynx\lynx.exe install
-          C:\"Program Files"\Lynx\lynx.exe build
-
-          C:\"Program Files"\Lynx\lynx.exe files
-          C:\"Program Files"\Lynx\lynx.exe cat lynx.toml
-          C:\"Program Files"\Lynx\lynx.exe project info
-
-          C:\"Program Files"\Lynx\lynx.exe list pkgs
-          C:\"Program Files"\Lynx\lynx.exe list registry
-          C:\"Program Files"\Lynx\lynx.exe search meowsys
-
-          C:\"Program Files"\Lynx\lynx.exe update
-          C:\"Program Files"\Lynx\lynx.exe remove meowsys
-
-          C:\"Program Files"\Lynx\lynx.exe publish
-          C:\"Program Files"\Lynx\lynx.exe fmt src/main.lnx
-          C:\"Program Files"\Lynx\lynx.exe check src/main.lnx
+      - name: Collect logs and debug info
+        if: always()
+        run: |
+          echo "=== COLLECTING DEBUG INFO ==="
+          
+          echo "Current directory contents:"
+          dir
+          
+          echo ""
+          echo "Program Files Lynx contents:"
+          if (Test-Path "C:\Program Files\Lynx") {
+            dir "C:\Program Files\Lynx" -Recurse
+          } else {
+            echo "❌ C:\Program Files\Lynx not found!"
+          }
+          
+          echo ""
+          echo "Install log (if exists):"
+          if (Test-Path install.log) {
+            Get-Content install.log
+          }
+          
+          echo ""
+          echo "lynx.toml (if exists):"
+          if (Test-Path lynx.toml) {
+            Get-Content lynx.toml
+          }
+          
+          echo ""
+          echo "lynx.lock (if exists):"
+          if (Test-Path lynx.lock) {
+            Get-Content lynx.lock
+          }
 
       - name: Upload installer
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lynx-installer
-          path: installer\installer\Lynx-1.4.0-installer.exe
+          path: installer\installer\Lynx-*.exe
+          if-no-files-found: warn
+
+      - name: Upload debug logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-logs
+          path: |
+            install.log
+            lynx.toml
+            lynx.lock
+            src/main.lnx
+          if-no-files-found: ignore
