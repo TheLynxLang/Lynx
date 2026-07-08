@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <shellapi.h>
 #include <urlmon.h>
+#include <errno.h>
 #include "lynx.h"
 
 #pragma comment(lib, "urlmon.lib")
@@ -11,6 +12,8 @@
 #define LYNX_VERSION "v1.4.0"
 
 extern Scanner scanner;
+extern char* lynx_error;
+extern LynxError lynx_error_state;
 
 void show_help() {
     printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
@@ -73,6 +76,12 @@ void runFile(const char* path, int argc, char** argv) {
 
 int main(int argc, char* argv[]) {
     SetConsoleOutputCP(65001);
+    
+    // Init error state
+    lynx_error_state.message = NULL;
+    lynx_error_state.line = 0;
+    lynx_error_state.col = 0;
+    lynx_error = NULL;
 
     if (argc >= 2) {
         if (_stricmp(argv[1], "help") == 0 || _stricmp(argv[1], "--help") == 0) {
