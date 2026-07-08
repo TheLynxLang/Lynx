@@ -43,10 +43,29 @@ void runFile(const char* path, int argc, char** argv) {
         strcpy(cleanPath, path);
     }
 
-    FILE* file = fopen(cleanPath, "rb");
+    // Try locations in order
+    FILE* file = NULL;
+    char fullPath[LYNX_MAX_PATH] = {0};
+    
+    // 1. Current working directory
+    file = fopen(cleanPath, "rb");
+    
+    // 2. Lynx installation directory (where lynx.exe lives)
+    if (!file) {
+        char exePath[LYNX_MAX_PATH];
+        GetModuleFileNameA(NULL, exePath, LYNX_MAX_PATH);
+        char* lastSlash = strrchr(exePath, '\\');
+        if (lastSlash) {
+            *lastSlash = '\0';
+            snprintf(fullPath, LYNX_MAX_PATH, "%s\\%s", exePath, cleanPath);
+            file = fopen(fullPath, "rb");
+        }
+    }
+    
+    // 3. %APPDATA%\LynxLang\std\
     if (!file) {
         char stdPath[LYNX_MAX_PATH];
-        sprintf(stdPath, "%s\\LynxLang\\std\\%s", getenv("APPDATA"), cleanPath);
+        snprintf(stdPath, LYNX_MAX_PATH, "%s\\LynxLang\\std\\%s", getenv("APPDATA"), cleanPath);
         file = fopen(stdPath, "rb");
     }
 
@@ -68,6 +87,10 @@ void runFile(const char* path, int argc, char** argv) {
         initScanner(buf);
         while (peekToken().type != TOKEN_EOF) {
             parse_statement();
+            if (lynx_error) {
+                // Error already printed by parse_statement
+                break;
+            }
         }
         scanner = previousScanner;
         free(buf);
@@ -175,7 +198,15 @@ int main(int argc, char* argv[]) {
                 fclose(f);
                 runFile(scriptPath, 0, NULL);
             } else {
-                runFile(argv[1], 0, NULL);
+                // Also try running as a file directly
+                FILE* test = fopen(argv[1], "r");
+                if (test) {
+                    fclose(test);
+                    runFile(argv[1], 0, NULL);
+                } else {
+                    printf("🐾 Unknown command: %s\n", argv[1]);
+                    printf("   Run 'lynx help' for available commands\n");
+                }
             }
             return 0;
         }
