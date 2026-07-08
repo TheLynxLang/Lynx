@@ -81,7 +81,7 @@ void runFile(const char* path, int argc, char** argv) {
         buf[size] = '\0';
         fclose(file);
 
-        // Strip UTF-8 BOM
+        // Strip UTF-8 BOM (EF BB BF)
         if (size >= 3 &&
             (unsigned char)buf[0] == 0xEF &&
             (unsigned char)buf[1] == 0xBB &&
