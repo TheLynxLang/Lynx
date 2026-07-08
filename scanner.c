@@ -10,6 +10,7 @@ void initScanner(const char* source) {
     scanner.start = source;
     scanner.current = source;
     scanner.line = 1;
+    scanner.col = 1;
 }
 
 static bool isAtEnd() {
@@ -17,6 +18,7 @@ static bool isAtEnd() {
 }
 
 static char advance() {
+    scanner.col++;
     return *scanner.current++;
 }
 
@@ -34,11 +36,13 @@ static Token makeToken(LynxTokenType type) {
     token.start = scanner.start;
     token.length = (int)(scanner.current - scanner.start);
     token.line = scanner.line;
+    token.col = scanner.col - token.length;
     return token;
 }
 
 static LynxTokenType checkKeyword() {
     const char* s = scanner.start;
+    int len = (int)(scanner.current - scanner.start);
 
     if (strcmp(s, "Set") == 0) return TOKEN_SET;
     if (strcmp(s, "Roar") == 0) return TOKEN_ROAR;
@@ -62,6 +66,7 @@ static LynxTokenType checkKeyword() {
     if (strcmp(s, "Try") == 0) return TOKEN_TRY;
     if (strcmp(s, "Catch") == 0) return TOKEN_CATCH;
     if (strcmp(s, "Argv") == 0) return TOKEN_ARGV;
+    if (strcmp(s, "Export") == 0) return TOKEN_EXPORT;
 
     // File I/O
     if (strcmp(s, "KittyWriteFile") == 0) return TOKEN_KITTY_WRITE_FILE;
@@ -111,7 +116,10 @@ Token peekToken() {
 
 Token scanToken() {
     while (isspace(peek())) {
-        if (advance() == '\n') scanner.line++;
+        if (advance() == '\n') {
+            scanner.line++;
+            scanner.col = 1;
+        }
     }
 
     if (peek() == '#') {
@@ -167,7 +175,10 @@ Token scanToken() {
             return makeToken(TOKEN_LT);
         case '"': {
             while (peek() != '"' && !isAtEnd()) {
-                if (peek() == '\n') scanner.line++;
+                if (peek() == '\n') {
+                    scanner.line++;
+                    scanner.col = 1;
+                }
                 advance();
             }
             if (isAtEnd()) return makeToken(TOKEN_ERROR);
