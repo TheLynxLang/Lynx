@@ -28,9 +28,6 @@ int funcCount = 0;
 // ─── RECURSION GUARD ────────────────────────────────────────────
 static int recursionDepth = 0;
 
-// ─── ERROR STATE (storage only) ─────────────────────────────────
-LynxError lynx_error_state = {0};
-
 char* getError() {
     if (lynx_error_state.message) {
         return strdup(lynx_error_state.message);
