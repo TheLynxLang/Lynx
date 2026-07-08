@@ -1,19 +1,23 @@
-# update.lnx – Update all packages (fully dynamic)
 Roar "🐾 Updating packages..."
 
-# Download registry index
-Run "curl -L -o /tmp/packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
-KittyReadFile "/tmp/packages.json"
-Set json = KittyReadFile("/tmp/packages.json")
+Set tempDir = getenv("TEMP")
+Set jsonFile = tempDir + "/packages.json"
 
-# Read current deps
+Run "curl -L -o " + jsonFile + " https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+
+KittyReadFile jsonFile
+Set json = __file_content
+
 KittyReadFile "lynx.toml"
-Set content = KittyReadFile("lynx.toml")
+Set content = __file_content
 Set lines = KittySplitString(content, "\n")
 Set in_deps = 0
 Set new_toml = ""
+Set updated = 0
 
-For line in lines {
+For i = 0 To __result - 1 {
+    Set line = __result[i]
+    
     If KittyCheckIfStringContains(line, "[dependencies]") {
         in_deps = 1
         new_toml = new_toml + line + "\n"
@@ -21,7 +25,10 @@ For line in lines {
     }
     
     If in_deps == 1 {
-        If line == "" { new_toml = new_toml + line + "\n"; Continue }
+        If line == "" { 
+            new_toml = new_toml + line + "\n"
+            Continue 
+        }
         If KittyCheckIfStringContains(line, "[") {
             in_deps = 0
             new_toml = new_toml + line + "\n"
@@ -34,14 +41,34 @@ For line in lines {
             Set old_version = Trim(parts[1])
             old_version = KittyReplaceString(old_version, "\"", "")
             
-            # Extract latest version from JSON (simple grep)
-            Run "cat /tmp/packages.json | grep -A5 '" + pkg + "' | grep 'latest' | head -1 | cut -d'\"' -f4 > /tmp/latest.txt"
-            KittyReadFile "/tmp/latest.txt"
-            Set new_version = KittyReadFile("/tmp/latest.txt")
+            Set jsonLines = KittySplitString(json, "\n")
+            Set new_version = ""
             
-            If new_version != "" {
+            For j = 0 To __result - 1 {
+                Set jline = __result[j]
+                If KittyCheckIfStringContains(jline, "\"" + pkg + "\"") {
+                    For k = j To j + 10 {
+                        If k < Len(__result) {
+                            Set vline = __result[k]
+                            If KittyCheckIfStringContains(vline, "version") {
+                                Set vparts = KittySplitString(vline, ":")
+                                If Len(vparts) >= 2 {
+                                    Set new_version = Trim(vparts[1])
+                                    Set new_version = KittyReplaceString(new_version, "\"", "")
+                                    Set new_version = KittyReplaceString(new_version, ",", "")
+                                    Break
+                                }
+                            }
+                        }
+                    }
+                    Break
+                }
+            }
+            
+            If Len(new_version) > 0 {
                 Roar "📦 Updating " + pkg + " (" + old_version + " → " + new_version + ")"
                 new_toml = new_toml + pkg + " = \"" + new_version + "\"\n"
+                Set updated = updated + 1
             } Else {
                 Roar "⚠️ " + pkg + " not found in registry, keeping " + old_version
                 new_toml = new_toml + line + "\n"
@@ -53,6 +80,13 @@ For line in lines {
 }
 
 KittyWriteFile "lynx.toml" new_toml
-Run "lynx install"
 
-Roar "✅ Updated all packages"
+If updated > 0 {
+    Roar "🔄 Reinstalling updated packages..."
+    Run "lynx install"
+    Roar "✅ Updated " + updated + " package(s)"
+} Else {
+    Roar "✅ All packages up to date"
+}
+
+Run "rm -f " + jsonFile
