@@ -1,83 +1,22 @@
-# 🐾 Lynx Add Script - Adds a dependency
-# Updated: Registry validation, semver support, lockfile update
+Roar "🐾 Adding package: " + __pkg
 
 Set pkgName = __pkg
-
-If Len(pkgName) == 0 {
-    Roar "🐾 Usage: lynx add <package>[@version]"
-    Exit
-}
-
-# Parse version if provided
 Set version = "latest"
-Set pkgName = Trim(pkgName)
 
-If KittyCheckIfStringContains(pkgName "@") {
-    Set parts = KittySplitString(pkgName "@")
-    Set pkgName = __result[0]
-    Set version = __result[1]
+If KittyCheckIfStringContains(__pkg, "@") {
+    Set parts = KittySplitString(__pkg, "@")
+    Set pkgName = parts[0]
+    Set version = parts[1]
 }
 
-Roar "🐾 Adding " + pkgName + " (" + version + ")..."
+KittyReadFile "lynx.toml"
+Set content = __file_content
 
-# Check registry
-Roar "🔍 Checking registry..."
-
-# Validate registry response
-Set registryUrl = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + pkgName + ".json"
-
-# Run curl/wget via Run command
-Set cmd = "curl -s " + registryUrl + " > temp_pkg.json"
-Run cmd
-
-# Validate JSON response
-KittyReadFile "temp_pkg.json"
-Set json = __file_content
-
-# Basic validation - check for required fields
-If KittyCheckIfStringContains(json "\"name\"") && KittyCheckIfStringContains(json "\"version\"") && KittyCheckIfStringContains(json "\"url\"") {
-    Roar "✅ Valid package found"
-    
-    # Parse version if specific version requested
-    If version != "latest" {
-        # Check if version exists in registry
-        Set versionCheck = "KittyCheckIfStringContains(json \"\\\"" + version + "\\\"\")"
-        # This would require a proper JSON parser - for now just check
-        If KittyCheckIfStringContains(json "\"" + version + "\"") {
-            Roar "📦 Using version " + version
-        } Else {
-            Roar "❌ Version " + version + " not found"
-            KittyRemoveFile "temp_pkg.json"
-            Exit
-        }
-    }
-    
-    # Add to lynx.toml
-    KittyReadFile "lynx.toml"
-    Set toml = __file_content
-    
-    # Check if already exists
-    If KittyCheckIfStringContains(toml pkgName) {
-        Roar "⚠️ " + pkgName + " already in dependencies"
-        KittyRemoveFile "temp_pkg.json"
-        Exit
-    }
-    
-    # Append dependency (simple)
-    Set newLine = pkgName + " = \"" + version + "\"\n"
-    Set toml = KittyReplaceString(toml "[dependencies]" "[dependencies]\n" + newLine)
-    KittyWriteFile "lynx.toml" toml
-    
-    # Update lockfile
-    Run "lynx install"
-    
-    Roar "✅ Added " + pkgName + " (" + version + ")"
-    Roar "Run 'lynx install' to download"
-    
+If KittyCheckIfStringContains(content, pkgName + " = ") {
+    Roar "⚠️ Package already exists: " + pkgName
 } Else {
-    Roar "❌ Package '" + pkgName + "' not found in registry"
-    Roar "   Check: https://github.com/justdev-chris/lynx-registry"
+    Set content = content + "\n" + pkgName + " = \"" + version + "\"\n"
+    KittyWriteFile "lynx.toml" content
+    Roar "✅ Added " + pkgName + " (" + version + ")"
+    Run "lynx install"
 }
-
-# Cleanup
-KittyRemoveFile "temp_pkg.json"
