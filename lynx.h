@@ -4,10 +4,10 @@
 #include <stdbool.h>
 
 // ─── CONSTANTS ────────────────────────────────────────────────
+#define LYNX_MAX_PATH 4096
 #define MAX_VARS 1000
 #define MAX_FUNCS 200
 #define MAX_PACKAGES 64
-#define MAX_PATH 4096
 #define MAX_STRING 16384
 #define MAX_RECURSION 100
 
