@@ -5,10 +5,12 @@
 #include "lynx.h"
 
 // ─── GLOBALS ──────────────────────────────────────────────────
-char* lynx_error = NULL;
+// These are defined in memory.c - only declare extern here
+extern char* lynx_error;
+extern LynxError lynx_error_state;
+
 char* loaded_packages[64];
 int loaded_pkg_count = 0;
-LynxError lynx_error_state = {0};
 
 // ─── FORWARD DECLARATIONS ──────────────────────────────────────
 void parse_statement();
@@ -35,18 +37,15 @@ void setError(const char* msg, int line, int col) {
     lynx_error_state.message = malloc(256);
     if (lynx_error) {
         snprintf(lynx_error, 256, "[Line %d, Col %d] %s", line, col, msg);
-        strcpy(lynx_error_state.message, lynx_error);
+        if (lynx_error_state.message) {
+            strcpy(lynx_error_state.message, lynx_error);
+        }
         lynx_error_state.line = line;
         lynx_error_state.col = col;
     }
 }
 
-char* getError() {
-    if (lynx_error_state.message) {
-        return strdup(lynx_error_state.message);
-    }
-    return strdup("OK");
-}
+// getError() is defined in memory.c - do not define here
 
 // ─── PARSING ──────────────────────────────────────────────────────
 
@@ -361,9 +360,8 @@ void parse_statement() {
             scanner = save;
             if (peekToken().type == TOKEN_ELSE) {
                 scanToken();
-                // Check for Else If
                 if (peekToken().type == TOKEN_IF) {
-                    parse_statement(); // Recursively parse the Else If
+                    parse_statement();
                 } else {
                     parse_block();
                 }
