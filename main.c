@@ -49,7 +49,7 @@ void runFile(const char* path, int argc, char** argv) {
     // 1. Current working directory
     file = fopen(cleanPath, "rb");
     
-    // 2. Lynx installation directory (where lynx.exe lives)
+    // 2. Lynx installation directory
     if (!file) {
         char exePath[LYNX_MAX_PATH];
         GetModuleFileNameA(NULL, exePath, LYNX_MAX_PATH);
