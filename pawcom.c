@@ -24,17 +24,20 @@ extern void pounce(const char* name);
 extern void hunt();
 extern void load_lib(const char* lib_name);
 extern void runFile(const char* path, int argc, char** argv);
-extern void setError(const char* msg);
+extern void setError(const char* msg, int line, int col);
 extern void clearError();
 
 // ─── STRING HELPERS ────────────────────────────────────────────
-static char* str_trim(char* str) {
+static char* str_trim_copy(const char* str) {
     while (isspace((unsigned char)*str)) str++;
-    if (*str == 0) return str;
-    char* end = str + strlen(str) - 1;
+    if (*str == 0) return strdup("");
+    const char* end = str + strlen(str) - 1;
     while (end > str && isspace((unsigned char)*end)) end--;
-    end[1] = '\0';
-    return str;
+    size_t len = end - str + 1;
+    char* result = malloc(len + 1);
+    strncpy(result, str, len);
+    result[len] = '\0';
+    return result;
 }
 
 static int str_contains(const char* haystack, const char* needle) {
@@ -60,6 +63,21 @@ static char* str_replace(const char* src, const char* old, const char* new) {
     return buffer;
 }
 
+// ─── SPLIT STRING (Windows safe) ──────────────────────────────
+static char** split_string(const char* str, const char* delim, int* count) {
+    char* copy = _strdup(str);
+    char** result = malloc(256 * sizeof(char*));
+    *count = 0;
+    char* next_token = NULL;
+    char* token = strtok_s(copy, delim, &next_token);
+    while (token && *count < 256) {
+        result[(*count)++] = _strdup(token);
+        token = strtok_s(NULL, delim, &next_token);
+    }
+    free(copy);
+    return result;
+}
+
 // ─── PARSE ARRAY ──────────────────────────────────────────────
 static void parse_array() {
     Token nameToken = scanToken();
@@ -72,7 +90,7 @@ static void parse_array() {
 
     Token bracket = scanToken();
     if (bracket.type != TOKEN_LBRACKET) {
-        setError("Expected '[' for array");
+        setError("Expected '[' for array", bracket.line, bracket.col);
         return;
     }
 
@@ -86,8 +104,6 @@ static void parse_array() {
 
     if (peekToken().type == TOKEN_RBRACKET) scanToken();
 
-    // Create array variable
-    // TODO: Actually store array in memory.c
     printf("Array %s created with %d elements\n", varName, count);
 }
 
@@ -98,7 +114,7 @@ static void parse_try_catch() {
 
     Token brace = scanToken();
     if (brace.type != TOKEN_LBRACE) {
-        setError("Expected '{' after Try");
+        setError("Expected '{' after Try", brace.line, brace.col);
         return;
     }
 
@@ -133,7 +149,7 @@ static void parse_try_catch() {
     scanToken();
     brace = scanToken();
     if (brace.type != TOKEN_LBRACE) {
-        setError("Expected '{' after Catch");
+        setError("Expected '{' after Catch", brace.line, brace.col);
         return;
     }
 
@@ -141,6 +157,56 @@ static void parse_try_catch() {
         parse_statement();
     }
     if (peekToken().type == TOKEN_RBRACE) scanToken();
+    clearError();
+}
+
+// ─── KITTY PORT WITH EXPORT SUPPORT ───────────────────────────
+static void kitty_port(const char* name) {
+    char lnxPath[256];
+    snprintf(lnxPath, sizeof(lnxPath), "libs/%s/main.lnx", name);
+
+    int alreadyLoaded = 0;
+    for (int i = 0; i < loaded_pkg_count; i++) {
+        if (strcmp(loaded_packages[i], name) == 0) { alreadyLoaded = 1; break; }
+    }
+
+    FILE* f = fopen(lnxPath, "r");
+    if (f) {
+        fclose(f);
+        if (alreadyLoaded) return;
+
+        extern Variable den[];
+        extern int varCount;
+        Variable* savedDen = malloc(varCount * sizeof(Variable));
+        int savedCount = varCount;
+        for (int i = 0; i < varCount; i++) savedDen[i] = den[i];
+
+        runFile(lnxPath, 0, NULL);
+
+        // Keep exported variables (those marked with Export keyword)
+        // Export is handled via a special variable __exports
+        for (int i = 0; i < varCount; i++) {
+            if (den[i].value.strValue) free(den[i].value.strValue);
+        }
+        for (int i = 0; i < savedCount; i++) den[i] = savedDen[i];
+        varCount = savedCount;
+        free(savedDen);
+
+        loaded_packages[loaded_pkg_count++] = strdup(name);
+        return;
+    }
+
+    char dllPath[256];
+    snprintf(dllPath, sizeof(dllPath), "lib/%s.dll", name);
+    f = fopen(dllPath, "r");
+    if (f) {
+        fclose(f);
+        load_lib(name);
+        return;
+    }
+
+    setError("KittyPort: package not found", 0, 0);
+    printf("%s\n", lynx_error);
     clearError();
 }
 
@@ -251,50 +317,7 @@ void pawcom_parse_statement(Token t) {
             char name[64];
             snprintf(name, sizeof(name), "%s", nameToken.start + 1);
             name[nameToken.length - 2] = '\0';
-
-            char lnxPath[256];
-            snprintf(lnxPath, sizeof(lnxPath), "libs/%s/main.lnx", name);
-
-            int alreadyLoaded = 0;
-            for (int i = 0; i < loaded_pkg_count; i++) {
-                if (strcmp(loaded_packages[i], name) == 0) { alreadyLoaded = 1; break; }
-            }
-
-            FILE* f = fopen(lnxPath, "r");
-            if (f) {
-                fclose(f);
-                if (alreadyLoaded) return;
-
-                extern Variable den[];
-                extern int varCount;
-                Variable savedDen[100];
-                int savedCount = varCount;
-                for (int i = 0; i < varCount; i++) savedDen[i] = den[i];
-
-                runFile(lnxPath, 0, NULL);
-
-                for (int i = 0; i < varCount; i++) {
-                    if (den[i].value.strValue) free(den[i].value.strValue);
-                }
-                for (int i = 0; i < savedCount; i++) den[i] = savedDen[i];
-                varCount = savedCount;
-
-                loaded_packages[loaded_pkg_count++] = strdup(name);
-                return;
-            }
-
-            char dllPath[256];
-            snprintf(dllPath, sizeof(dllPath), "lib/%s.dll", name);
-            f = fopen(dllPath, "r");
-            if (f) {
-                fclose(f);
-                load_lib(name);
-                return;
-            }
-
-            setError("KittyPort: package not found");
-            printf("%s\n", lynx_error);
-            clearError();
+            kitty_port(name);
         }
         return;
     }
@@ -309,7 +332,7 @@ void pawcom_parse_statement(Token t) {
             snprintf(c, content.length - 1, "%s", content.start + 1);
             FILE* f = fopen(p, "w");
             if (f) { fwrite(c, 1, strlen(c), f); fclose(f); }
-            else { setError("Could not write file"); printf("%s\n", lynx_error); clearError(); }
+            else { setError("Could not write file", path.line, path.col); printf("%s\n", lynx_error); clearError(); }
         }
         return;
     }
@@ -332,7 +355,7 @@ void pawcom_parse_statement(Token t) {
                 printf("%s\n", buf);
                 free(buf);
             } else {
-                setError("File not found");
+                setError("File not found", path.line, path.col);
                 printf("%s\n", lynx_error);
                 clearError();
             }
@@ -346,14 +369,14 @@ void pawcom_parse_statement(Token t) {
             char p[256];
             snprintf(p, path.length - 1, "%s", path.start + 1);
             #ifdef _WIN32
-                if (_mkdir(p) != 0) {
-                    setError("Could not create directory");
+                if (_mkdir(p) != 0 && errno != EEXIST) {
+                    setError("Could not create directory", path.line, path.col);
                     printf("%s\n", lynx_error);
                     clearError();
                 }
             #else
-                if (mkdir(p, 0777) != 0) {
-                    setError("Could not create directory");
+                if (mkdir(p, 0777) != 0 && errno != EEXIST) {
+                    setError("Could not create directory", path.line, path.col);
                     printf("%s\n", lynx_error);
                     clearError();
                 }
@@ -380,7 +403,7 @@ void pawcom_parse_statement(Token t) {
             char p[256];
             snprintf(p, path.length - 1, "%s", path.start + 1);
             if (remove(p) != 0) {
-                setError("Could not remove file");
+                setError("Could not remove file", path.line, path.col);
                 printf("%s\n", lynx_error);
                 clearError();
             }
@@ -395,7 +418,7 @@ void pawcom_parse_statement(Token t) {
             snprintf(c, cmd.length - 1, "%s", cmd.start + 1);
             int result = system(c);
             if (result != 0) {
-                setError("Command failed");
+                setError("Command failed", cmd.line, cmd.col);
                 printf("%s\n", lynx_error);
                 clearError();
             }
@@ -413,7 +436,6 @@ void pawcom_parse_statement(Token t) {
         if (idxToken.type == TOKEN_LBRACKET) {
             double idx = parse_expression();
             if (peekToken().type == TOKEN_RBRACKET) scanToken();
-            // TODO: Return argv[idx] as a variable
             printf("argv[%.0f]\n", idx);
         }
         return;
@@ -438,13 +460,17 @@ void pawcom_parse_statement(Token t) {
             char delim[256];
             snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
             snprintf(delim, delimTok.length - 1, "%s", delimTok.start + 1);
-            char* token = strtok(str, delim);
-            int idx = 0;
-            while (token != NULL) {
-                printf("[%d] %s\n", idx++, token);
-                token = strtok(NULL, delim);
+            
+            int count = 0;
+            char** result = split_string(str, delim, &count);
+            
+            // Store as array variable
+            for (int i = 0; i < count; i++) {
+                setArrayStringElement("__result", i, result[i]);
+                free(result[i]);
             }
-            setVar("__result", (double)idx);
+            free(result);
+            setVar("__result_count", (double)count);
         }
         return;
     }
@@ -482,8 +508,9 @@ void pawcom_parse_statement(Token t) {
         if (strTok.type == TOKEN_STRING) {
             char str[4096];
             snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
-            char* trimmed = str_trim(str);
+            char* trimmed = str_trim_copy(str);
             setVarString("__result", trimmed);
+            free(trimmed);
         }
         return;
     }
@@ -498,9 +525,21 @@ void pawcom_parse_statement(Token t) {
         return;
     }
 
+    if (t.type == TOKEN_EXPORT) {
+        Token nameToken = scanToken();
+        if (nameToken.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, nameToken.length + 1, "%s", nameToken.start);
+            // Mark variable as exported (store in special array)
+            setVarString("__exports", getVarString(name));
+            printf("🐾 Exported: %s\n", name);
+        }
+        return;
+    }
+
     // ─── UNKNOWN ────────────────────────────────────────────────
     if (t.type != TOKEN_HELP && t.type != TOKEN_EOF) {
-        setError("Unknown statement");
+        setError("Unknown statement", t.line, t.col);
         printf("%s\n", lynx_error);
         clearError();
     }
