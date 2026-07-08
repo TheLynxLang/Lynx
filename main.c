@@ -34,7 +34,7 @@ void show_help() {
 }
 
 void runFile(const char* path, int argc, char** argv) {
-    char cleanPath[MAX_PATH];
+    char cleanPath[LYNX_MAX_PATH];
     if (path[0] == '"') {
         int len = strlen(path) - 2;
         strncpy(cleanPath, path + 1, len);
@@ -45,7 +45,7 @@ void runFile(const char* path, int argc, char** argv) {
 
     FILE* file = fopen(cleanPath, "rb");
     if (!file) {
-        char stdPath[MAX_PATH];
+        char stdPath[LYNX_MAX_PATH];
         sprintf(stdPath, "%s\\LynxLang\\std\\%s", getenv("APPDATA"), cleanPath);
         file = fopen(stdPath, "rb");
     }
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
         }
         else if (_stricmp(argv[1], "--update") == 0) {
             printf("🔄 Preparing update...\n");
-            char tempInstaller[MAX_PATH];
+            char tempInstaller[LYNX_MAX_PATH];
             sprintf(tempInstaller, "%s\\LynxInstaller.exe", getenv("TEMP"));
             const char* url = "https://github.com/justdev-chris/Lynx/releases/latest/download/LynxInstaller.exe";
             if (S_OK == URLDownloadToFileA(NULL, url, tempInstaller, 0, NULL)) {
