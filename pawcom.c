@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <errno.h>
 #include "lynx.h"
 
 #ifdef _WIN32
@@ -25,12 +26,15 @@ extern void hunt();
 extern void load_lib(const char* lib_name);
 extern void runFile(const char* path, int argc, char** argv);
 extern void setError(const char* msg, int line, int col);
+extern void setErrorF(const char* format, ...);
 extern void clearError();
+extern const char* tokenTypeToString(LynxTokenType type);
+extern char* getTokenText(Token t);
 
 // ─── STRING HELPERS ────────────────────────────────────────────
 static char* str_trim_copy(const char* str) {
     while (isspace((unsigned char)*str)) str++;
-    if (*str == 0) return strdup("");
+    if (*str == 0) return _strdup("");
     const char* end = str + strlen(str) - 1;
     while (end > str && isspace((unsigned char)*end)) end--;
     size_t len = end - str + 1;
@@ -81,16 +85,28 @@ static char** split_string(const char* str, const char* delim, int* count) {
 // ─── PARSE ARRAY ──────────────────────────────────────────────
 static void parse_array() {
     Token nameToken = scanToken();
-    if (nameToken.type != TOKEN_IDENTIFIER) return;
+    if (nameToken.type != TOKEN_IDENTIFIER) {
+        char* text = getTokenText(nameToken);
+        setErrorF("Array assignment expects variable name, got '%s' (type: %s)", 
+                  text, tokenTypeToString(nameToken.type));
+        return;
+    }
     char varName[64];
     snprintf(varName, nameToken.length + 1, "%s", nameToken.start);
 
     Token op = scanToken();
-    if (op.type != TOKEN_EQUAL) return;
+    if (op.type != TOKEN_EQUAL) {
+        char* text = getTokenText(op);
+        setErrorF("Array assignment expects '=', got '%s' (type: %s)", 
+                  text, tokenTypeToString(op.type));
+        return;
+    }
 
     Token bracket = scanToken();
     if (bracket.type != TOKEN_LBRACKET) {
-        setError("Expected '[' for array", bracket.line, bracket.col);
+        char* text = getTokenText(bracket);
+        setErrorF("Array assignment expects '[', got '%s' (type: %s)", 
+                  text, tokenTypeToString(bracket.type));
         return;
     }
 
@@ -98,11 +114,17 @@ static void parse_array() {
     double values[256];
     while (peekToken().type != TOKEN_RBRACKET && peekToken().type != TOKEN_EOF) {
         double val = parse_expression();
+        if (lynx_error) return;
         values[count++] = val;
         if (peekToken().type == TOKEN_COMMA) scanToken();
     }
 
-    if (peekToken().type == TOKEN_RBRACKET) scanToken();
+    if (peekToken().type == TOKEN_RBRACKET) {
+        scanToken();
+    } else {
+        setErrorF("Array assignment expects ']' to close array");
+        return;
+    }
 
     printf("Array %s created with %d elements\n", varName, count);
 }
@@ -114,7 +136,9 @@ static void parse_try_catch() {
 
     Token brace = scanToken();
     if (brace.type != TOKEN_LBRACE) {
-        setError("Expected '{' after Try", brace.line, brace.col);
+        char* text = getTokenText(brace);
+        setErrorF("Try expects '{', got '%s' (type: %s)", 
+                  text, tokenTypeToString(brace.type));
         return;
     }
 
@@ -149,12 +173,15 @@ static void parse_try_catch() {
     scanToken();
     brace = scanToken();
     if (brace.type != TOKEN_LBRACE) {
-        setError("Expected '{' after Catch", brace.line, brace.col);
+        char* text = getTokenText(brace);
+        setErrorF("Catch expects '{', got '%s' (type: %s)", 
+                  text, tokenTypeToString(brace.type));
         return;
     }
 
     while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF) {
         parse_statement();
+        if (lynx_error) break;
     }
     if (peekToken().type == TOKEN_RBRACE) scanToken();
     clearError();
@@ -183,8 +210,6 @@ static void kitty_port(const char* name) {
 
         runFile(lnxPath, 0, NULL);
 
-        // Keep exported variables (those marked with Export keyword)
-        // Export is handled via a special variable __exports
         for (int i = 0; i < varCount; i++) {
             if (den[i].value.strValue) free(den[i].value.strValue);
         }
@@ -192,7 +217,7 @@ static void kitty_port(const char* name) {
         varCount = savedCount;
         free(savedDen);
 
-        loaded_packages[loaded_pkg_count++] = strdup(name);
+        loaded_packages[loaded_pkg_count++] = _strdup(name);
         return;
     }
 
@@ -205,7 +230,7 @@ static void kitty_port(const char* name) {
         return;
     }
 
-    setError("KittyPort: package not found", 0, 0);
+    setErrorF("KittyPort: Package '%s' not found in libs/ or lib/", name);
     printf("%s\n", lynx_error);
     clearError();
 }
@@ -233,15 +258,26 @@ void pawcom_parse_statement(Token t) {
                     printf("%.5f\n", num);
                 }
             }
-        } else if (val.type == TOKEN_NUMBER) {
-            printf("%.5f\n", atof(val.start));
+        } else {
+            char* text = getTokenText(val);
+            setErrorF("Roar expects a string, identifier, or number, got '%s' (type: %s)",
+                      text, tokenTypeToString(val.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
 
     if (t.type == TOKEN_SET) {
         Token nameToken = scanToken();
-        if (nameToken.type != TOKEN_IDENTIFIER) return;
+        if (nameToken.type != TOKEN_IDENTIFIER) {
+            char* text = getTokenText(nameToken);
+            setErrorF("Set expects a variable name, got '%s' (type: %s)",
+                      text, tokenTypeToString(nameToken.type));
+            printf("%s\n", lynx_error);
+            clearError();
+            return;
+        }
         char varName[64];
         snprintf(varName, nameToken.length + 1, "%s", nameToken.start);
 
@@ -249,6 +285,10 @@ void pawcom_parse_statement(Token t) {
         if (op.type == TOKEN_EQUAL) {
             if (peekToken().type == TOKEN_LBRACKET) {
                 parse_array();
+                if (lynx_error) {
+                    printf("%s\n", lynx_error);
+                    clearError();
+                }
                 return;
             }
             if (peekToken().type == TOKEN_STRING) {
@@ -269,6 +309,12 @@ void pawcom_parse_statement(Token t) {
             setVar(varName, getVar(varName) + 1);
         } else if (op.type == TOKEN_DECREMENT) {
             setVar(varName, getVar(varName) - 1);
+        } else {
+            char* text = getTokenText(op);
+            setErrorF("Set expected '=', '++', or '--', got '%s' (type: %s)",
+                      text, tokenTypeToString(op.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -283,6 +329,12 @@ void pawcom_parse_statement(Token t) {
                 printf("%s\n", lynx_error);
                 clearError();
             }
+        } else {
+            char* text = getTokenText(pathToken);
+            setErrorF("Stalk_Pack expects a string path, got '%s' (type: %s)",
+                      text, tokenTypeToString(pathToken.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -297,6 +349,12 @@ void pawcom_parse_statement(Token t) {
                 printf("%s\n", lynx_error);
                 clearError();
             }
+        } else {
+            char* text = getTokenText(nameToken);
+            setErrorF("Pounce expects a variable name, got '%s' (type: %s)",
+                      text, tokenTypeToString(nameToken.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -307,6 +365,12 @@ void pawcom_parse_statement(Token t) {
             char lib[64];
             snprintf(lib, libToken.length - 1, "%s", libToken.start + 1);
             load_lib(lib);
+        } else {
+            char* text = getTokenText(libToken);
+            setErrorF("LoadLib expects a library name (string), got '%s' (type: %s)",
+                      text, tokenTypeToString(libToken.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -318,6 +382,12 @@ void pawcom_parse_statement(Token t) {
             snprintf(name, sizeof(name), "%s", nameToken.start + 1);
             name[nameToken.length - 2] = '\0';
             kitty_port(name);
+        } else {
+            char* text = getTokenText(nameToken);
+            setErrorF("KittyPort expects a package name (string), got '%s' (type: %s)",
+                      text, tokenTypeToString(nameToken.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -331,8 +401,21 @@ void pawcom_parse_statement(Token t) {
             snprintf(p, path.length - 1, "%s", path.start + 1);
             snprintf(c, content.length - 1, "%s", content.start + 1);
             FILE* f = fopen(p, "w");
-            if (f) { fwrite(c, 1, strlen(c), f); fclose(f); }
-            else { setError("Could not write file", path.line, path.col); printf("%s\n", lynx_error); clearError(); }
+            if (f) { 
+                fwrite(c, 1, strlen(c), f); 
+                fclose(f); 
+            } else {
+                setErrorF("KittyWriteFile: Could not open '%s' for writing", p);
+                printf("%s\n", lynx_error);
+                clearError();
+            }
+        } else {
+            char* text1 = getTokenText(path);
+            char* text2 = getTokenText(content);
+            setErrorF("KittyWriteFile expects two strings (path, content), got '%s' (type: %s) and '%s' (type: %s)",
+                      text1, tokenTypeToString(path.type), text2, tokenTypeToString(content.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -355,10 +438,16 @@ void pawcom_parse_statement(Token t) {
                 printf("%s\n", buf);
                 free(buf);
             } else {
-                setError("File not found", path.line, path.col);
+                setErrorF("KittyReadFile: File '%s' not found", p);
                 printf("%s\n", lynx_error);
                 clearError();
             }
+        } else {
+            char* text = getTokenText(path);
+            setErrorF("KittyReadFile expects a string path, got '%s' (type: %s)",
+                      text, tokenTypeToString(path.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -370,17 +459,23 @@ void pawcom_parse_statement(Token t) {
             snprintf(p, path.length - 1, "%s", path.start + 1);
             #ifdef _WIN32
                 if (_mkdir(p) != 0 && errno != EEXIST) {
-                    setError("Could not create directory", path.line, path.col);
+                    setErrorF("Paw: Could not create directory '%s'", p);
                     printf("%s\n", lynx_error);
                     clearError();
                 }
             #else
                 if (mkdir(p, 0777) != 0 && errno != EEXIST) {
-                    setError("Could not create directory", path.line, path.col);
+                    setErrorF("Paw: Could not create directory '%s'", p);
                     printf("%s\n", lynx_error);
                     clearError();
                 }
             #endif
+        } else {
+            char* text = getTokenText(path);
+            setErrorF("Paw expects a string path, got '%s' (type: %s)",
+                      text, tokenTypeToString(path.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -393,6 +488,12 @@ void pawcom_parse_statement(Token t) {
             FILE* f = fopen(p, "r");
             setVar("__result", f ? 1.0 : 0.0);
             if (f) fclose(f);
+        } else {
+            char* text = getTokenText(path);
+            setErrorF("KittyFileExists expects a string path, got '%s' (type: %s)",
+                      text, tokenTypeToString(path.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -403,10 +504,16 @@ void pawcom_parse_statement(Token t) {
             char p[256];
             snprintf(p, path.length - 1, "%s", path.start + 1);
             if (remove(p) != 0) {
-                setError("Could not remove file", path.line, path.col);
+                setErrorF("KittyRemoveFile: Could not remove '%s'", p);
                 printf("%s\n", lynx_error);
                 clearError();
             }
+        } else {
+            char* text = getTokenText(path);
+            setErrorF("KittyRemoveFile expects a string path, got '%s' (type: %s)",
+                      text, tokenTypeToString(path.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -418,16 +525,26 @@ void pawcom_parse_statement(Token t) {
             snprintf(c, cmd.length - 1, "%s", cmd.start + 1);
             int result = system(c);
             if (result != 0) {
-                setError("Command failed", cmd.line, cmd.col);
+                setErrorF("Run: Command failed with exit code %d", result);
                 printf("%s\n", lynx_error);
                 clearError();
             }
+        } else {
+            char* text = getTokenText(cmd);
+            setErrorF("Run expects a string command, got '%s' (type: %s)",
+                      text, tokenTypeToString(cmd.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
 
     if (t.type == TOKEN_TRY) {
         parse_try_catch();
+        if (lynx_error) {
+            printf("%s\n", lynx_error);
+            clearError();
+        }
         return;
     }
 
@@ -435,8 +552,23 @@ void pawcom_parse_statement(Token t) {
         Token idxToken = scanToken();
         if (idxToken.type == TOKEN_LBRACKET) {
             double idx = parse_expression();
-            if (peekToken().type == TOKEN_RBRACKET) scanToken();
-            printf("argv[%.0f]\n", idx);
+            if (peekToken().type == TOKEN_RBRACKET) {
+                scanToken();
+                printf("argv[%.0f]\n", idx);
+            } else {
+                Token next = peekToken();
+                char* text = getTokenText(next);
+                setErrorF("Argv expects ']' after index, got '%s' (type: %s)",
+                          text, tokenTypeToString(next.type));
+                printf("%s\n", lynx_error);
+                clearError();
+            }
+        } else {
+            char* text = getTokenText(idxToken);
+            setErrorF("Argv expects '[', got '%s' (type: %s)",
+                      text, tokenTypeToString(idxToken.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -464,13 +596,19 @@ void pawcom_parse_statement(Token t) {
             int count = 0;
             char** result = split_string(str, delim, &count);
             
-            // Store as array variable
             for (int i = 0; i < count; i++) {
                 setArrayStringElement("__result", i, result[i]);
                 free(result[i]);
             }
             free(result);
             setVar("__result_count", (double)count);
+        } else {
+            char* text1 = getTokenText(strTok);
+            char* text2 = getTokenText(delimTok);
+            setErrorF("KittySplitString expects two strings (string, delimiter), got '%s' (type: %s) and '%s' (type: %s)",
+                      text1, tokenTypeToString(strTok.type), text2, tokenTypeToString(delimTok.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -484,6 +622,13 @@ void pawcom_parse_statement(Token t) {
             snprintf(hay, hayTok.length - 1, "%s", hayTok.start + 1);
             snprintf(needle, needleTok.length - 1, "%s", needleTok.start + 1);
             setVar("__result", str_contains(hay, needle) ? 1.0 : 0.0);
+        } else {
+            char* text1 = getTokenText(hayTok);
+            char* text2 = getTokenText(needleTok);
+            setErrorF("KittyCheckIfStringContains expects two strings (haystack, needle), got '%s' (type: %s) and '%s' (type: %s)",
+                      text1, tokenTypeToString(hayTok.type), text2, tokenTypeToString(needleTok.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -499,6 +644,14 @@ void pawcom_parse_statement(Token t) {
             snprintf(new, newTok.length - 1, "%s", newTok.start + 1);
             char* result = str_replace(src, old, new);
             setVarString("__result", result);
+        } else {
+            char* text1 = getTokenText(srcTok);
+            char* text2 = getTokenText(oldTok);
+            char* text3 = getTokenText(newTok);
+            setErrorF("KittyReplaceString expects three strings (source, old, new), got '%s' (type: %s), '%s' (type: %s), '%s' (type: %s)",
+                      text1, tokenTypeToString(srcTok.type), text2, tokenTypeToString(oldTok.type), text3, tokenTypeToString(newTok.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -511,6 +664,12 @@ void pawcom_parse_statement(Token t) {
             char* trimmed = str_trim_copy(str);
             setVarString("__result", trimmed);
             free(trimmed);
+        } else {
+            char* text = getTokenText(strTok);
+            setErrorF("Trim expects a string, got '%s' (type: %s)",
+                      text, tokenTypeToString(strTok.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -521,6 +680,12 @@ void pawcom_parse_statement(Token t) {
             char str[4096];
             snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
             setVar("__result", (double)strlen(str));
+        } else {
+            char* text = getTokenText(strTok);
+            setErrorF("Len expects a string, got '%s' (type: %s)",
+                      text, tokenTypeToString(strTok.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
@@ -530,16 +695,23 @@ void pawcom_parse_statement(Token t) {
         if (nameToken.type == TOKEN_IDENTIFIER) {
             char name[64];
             snprintf(name, nameToken.length + 1, "%s", nameToken.start);
-            // Mark variable as exported (store in special array)
             setVarString("__exports", getVarString(name));
             printf("🐾 Exported: %s\n", name);
+        } else {
+            char* text = getTokenText(nameToken);
+            setErrorF("Export expects a variable name, got '%s' (type: %s)",
+                      text, tokenTypeToString(nameToken.type));
+            printf("%s\n", lynx_error);
+            clearError();
         }
         return;
     }
 
     // ─── UNKNOWN ────────────────────────────────────────────────
     if (t.type != TOKEN_HELP && t.type != TOKEN_EOF) {
-        setError("Unknown statement", t.line, t.col);
+        char* text = getTokenText(t);
+        setErrorF("Unknown command '%s' (type: %s) at line %d. See 'Help' for available commands",
+                  text, tokenTypeToString(t.type), t.line);
         printf("%s\n", lynx_error);
         clearError();
     }
