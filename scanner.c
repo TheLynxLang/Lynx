@@ -11,6 +11,28 @@ void initScanner(const char* source) {
     scanner.current = source;
     scanner.line = 1;
     scanner.col = 1;
+    
+    // Skip UTF-8 BOM (EF BB BF)
+    if ((unsigned char)source[0] == 0xEF && 
+        (unsigned char)source[1] == 0xBB && 
+        (unsigned char)source[2] == 0xBF) {
+        scanner.current += 3;
+        scanner.start += 3;
+    }
+    
+    // Skip UTF-16 LE BOM (FF FE)
+    if ((unsigned char)source[0] == 0xFF && 
+        (unsigned char)source[1] == 0xFE) {
+        scanner.current += 2;
+        scanner.start += 2;
+    }
+    
+    // Skip UTF-16 BE BOM (FE FF)
+    if ((unsigned char)source[0] == 0xFE && 
+        (unsigned char)source[1] == 0xFF) {
+        scanner.current += 2;
+        scanner.start += 2;
+    }
 }
 
 static bool isAtEnd() {
