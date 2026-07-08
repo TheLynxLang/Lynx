@@ -8,6 +8,7 @@
 char* lynx_error = NULL;
 char* loaded_packages[64];
 int loaded_pkg_count = 0;
+LynxError lynx_error_state = {0};
 
 // ─── FORWARD DECLARATIONS ──────────────────────────────────────
 void parse_statement();
@@ -20,12 +21,31 @@ void clearError() {
         free(lynx_error);
         lynx_error = NULL;
     }
+    if (lynx_error_state.message) {
+        free(lynx_error_state.message);
+        lynx_error_state.message = NULL;
+    }
+    lynx_error_state.line = 0;
+    lynx_error_state.col = 0;
 }
 
-void setError(const char* msg) {
+void setError(const char* msg, int line, int col) {
     clearError();
-    lynx_error = malloc(strlen(msg) + 1);
-    if (lynx_error) strcpy(lynx_error, msg);
+    lynx_error = malloc(256);
+    lynx_error_state.message = malloc(256);
+    if (lynx_error) {
+        snprintf(lynx_error, 256, "[Line %d, Col %d] %s", line, col, msg);
+        strcpy(lynx_error_state.message, lynx_error);
+        lynx_error_state.line = line;
+        lynx_error_state.col = col;
+    }
+}
+
+char* getError() {
+    if (lynx_error_state.message) {
+        return strdup(lynx_error_state.message);
+    }
+    return strdup("OK");
 }
 
 // ─── PARSING ──────────────────────────────────────────────────────
@@ -37,7 +57,15 @@ double parse_primary() {
         char name[64];
         snprintf(name, t.length + 1, "%s", t.start);
         if (peekToken().type == TOKEN_LPAREN) {
-            scanToken(); scanToken();
+            scanToken(); 
+            // Parse arguments
+            int argCount = 0;
+            double args[10];
+            while (peekToken().type != TOKEN_RPAREN && peekToken().type != TOKEN_EOF) {
+                if (argCount > 0 && peekToken().type == TOKEN_COMMA) scanToken();
+                args[argCount++] = parse_expression();
+            }
+            if (peekToken().type == TOKEN_RPAREN) scanToken();
             return callFunction(name);
         }
         return getVar(name);
@@ -67,14 +95,14 @@ double parse_term() {
             case TOKEN_STAR: value *= right; break;
             case TOKEN_SLASH:
                 if (right == 0) {
-                    setError("Division by zero");
+                    setError("Division by zero", op.line, op.col);
                     return 0;
                 }
                 value /= right;
                 break;
             case TOKEN_MODULO:
                 if (right == 0) {
-                    setError("Modulo by zero");
+                    setError("Modulo by zero", op.line, op.col);
                     return 0;
                 }
                 value = (double)((int)value % (int)right);
@@ -164,20 +192,32 @@ void parse_for_loop() {
 }
 
 void parse_while_loop() {
+    Scanner condStart = scanner;
     int condition = parse_logic_expression();
     Token lbrace = scanToken();
     if (lbrace.type != TOKEN_LBRACE) return;
-    Scanner loopStart = scanner;
-    while (condition) {
-        scanner = loopStart;
-        while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF)
-            parse_statement();
-        condition = parse_logic_expression();
-        scanToken();
-        lbrace = scanToken();
-        if (lbrace.type != TOKEN_LBRACE) break;
-        loopStart = scanner;
+    
+    Scanner bodyStart = scanner;
+    int braceDepth = 1;
+    while (braceDepth > 0 && peekToken().type != TOKEN_EOF) {
+        Token t = scanToken();
+        if (t.type == TOKEN_LBRACE) braceDepth++;
+        if (t.type == TOKEN_RBRACE) braceDepth--;
     }
+    Scanner bodyEnd = scanner;
+    
+    int bodyLen = (int)(bodyEnd.current - bodyStart.start);
+    char* body = malloc(bodyLen + 1);
+    strncpy(body, bodyStart.start, bodyLen);
+    body[bodyLen] = '\0';
+    
+    while (condition) {
+        initScanner(body);
+        while (peekToken().type != TOKEN_EOF) parse_statement();
+        initScanner(condStart.start);
+        condition = parse_logic_expression();
+    }
+    free(body);
 }
 
 void parse_function_def() {
@@ -321,7 +361,12 @@ void parse_statement() {
             scanner = save;
             if (peekToken().type == TOKEN_ELSE) {
                 scanToken();
-                parse_block();
+                // Check for Else If
+                if (peekToken().type == TOKEN_IF) {
+                    parse_statement(); // Recursively parse the Else If
+                } else {
+                    parse_block();
+                }
             }
         }
         return;
