@@ -1,120 +1,160 @@
-# 🐾 Lynx Install Script - Installs dependencies
-# Updated: Lockfile, offline cache, checksums, semver resolution
-
 Roar "🐾 Installing dependencies..."
 
-# Read lynx.toml
-KittyReadFile "lynx.toml"
-Set toml = __file_content
+Paw "libs"
 
-If Len(toml) == 0 {
-    Roar "❌ No lynx.toml found"
+Set cacheDir = getenv("USERPROFILE") + "/.lynx/cache/"
+Paw cacheDir
+
+If KittyFileExists("lynx.lock") {
+    Roar "🔒 Lockfile found — installing pinned versions"
+    KittyReadFile "lynx.lock"
+    Set lock_content = __file_content
+    Set lock_lines = KittySplitString(lock_content, "\n")
+
+    For i = 0 To __result - 1 {
+        Set line = __result[i]
+        If line == "" { Continue }
+        Set parts = KittySplitString(line, "=")
+        If Len(parts) >= 2 {
+            Set pkg = Trim(parts[0])
+            Set version = Trim(parts[1])
+            version = KittyReplaceString(version, "\"", "")
+            
+            Roar "📦 Installing " + pkg + " (" + version + ")"
+            
+            Set url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + pkg + "/" + version + "/package.tar.gz"
+            Set dest = "libs/" + pkg + ".tar.gz"
+            Set cacheFile = cacheDir + pkg + "_" + version + ".tar.gz"
+            
+            KittyFileExists cacheFile
+            If __result == 1 {
+                Roar "💾 Using cached: " + pkg
+                Run "cp " + cacheFile + " " + dest
+            } Else {
+                Run "curl -L -o " + dest + " " + url
+                Run "cp " + dest + " " + cacheFile
+            }
+            
+            Run "mkdir -p libs/" + pkg
+            Run "tar -xzf " + dest + " -C libs/" + pkg + "/"
+            Run "rm " + dest
+            
+            Roar "✅ Installed " + pkg
+        }
+    }
+    
+    Roar "✅ All dependencies installed from lockfile"
     Exit
 }
 
-# Check for lockfile
-KittyFileExists "lynx.lock"
-Set hasLock = __result
+Roar "🔓 No lockfile found — resolving dependencies"
 
-If hasLock == 1 {
-    Roar "📋 Lockfile found - using locked versions"
-    KittyReadFile "lynx.lock"
-    Set lockContent = __file_content
-} Else {
-    Roar "📋 No lockfile - will generate"
-}
+KittyReadFile "lynx.toml"
+Set content = __file_content
 
-# Parse dependencies (simple line-by-line)
-Set deps = KittySplitString(toml "\n")
-Set depCount = __result
+Set lines = KittySplitString(content, "\n")
+Set in_deps = 0
+Set installed_packages = ""
+Set lock_content = ""
 
-For i = 0 To depCount - 1 {
+For i = 0 To __result - 1 {
     Set line = __result[i]
     
-    # Skip comments and empty lines
-    If Len(Trim(line)) == 0 { Continue }
-    If KittyCheckIfStringContains(line "#") { Continue }
+    If KittyCheckIfStringContains(line, "[dependencies]") {
+        in_deps = 1
+        Continue
+    }
     
-    # Check if it's a dependency line (contains "=")
-    If KittyCheckIfStringContains(line "=") {
-        # Parse name and version
-        Set parts = KittySplitString(line "=")
-        Set name = Trim(__result[0])
-        Set version = Trim(__result[1])
-        
-        # Remove quotes
-        Set version = KittyReplaceString(version "\"", "")
-        Set version = KittyReplaceString(version "'", "")
-        
-        Roar "📦 " + name + " (" + version + ")"
-        
-        # Check cache
-        Set cacheDir = getenv("USERPROFILE") + "/.lynx/cache/"
-        Paw cacheDir
-        
-        Set cacheFile = cacheDir + name + "_" + version + ".tar.gz"
-        KittyFileExists cacheFile
-        Set cached = __result
-        
-        If cached == 1 {
-            Roar "💾 Using cached: " + cacheFile
-        } Else {
-            # Download from registry
-            Roar "⬇️ Downloading " + name + "..."
-            
-            # Get registry metadata
-            Set registryUrl = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + name + ".json"
-            Set cmd = "curl -s " + registryUrl + " > temp_" + name + ".json"
-            Run cmd
-            
-            # Read metadata
-            KittyReadFile "temp_" + name + ".json"
-            Set metadata = __file_content
-            
-            # Validate checksum if available
-            If KittyCheckIfStringContains(metadata "\"sha256\"") {
-                Roar "🔐 Checksum verification available"
-                # Download would happen here with sha256 check
-                # For now, just download
-            } Else {
-                Roar "⚠️ No checksum in registry"
-            }
-            
-            # Extract download URL from metadata (simplified)
-            Set url = "https://github.com/justdev-chris/lynx-registry/releases/download/" + name + "-" + version + "/package.tar.gz"
-            
-            # Download
-            Set dlCmd = "curl -L " + url + " -o " + cacheFile
-            Run dlCmd
-            
-            # Verify checksum if available (would need actual sha256 command)
-            # This is a placeholder - real implementation would call sha256sum
+    If in_deps == 1 {
+        If line == "" { Continue }
+        If KittyCheckIfStringContains(line, "[") {
+            Break
         }
         
-        # Extract to libs/
-        Set libPath = "libs/" + name
-        Paw libPath
-        
-        # Extract cached tarball
-        Set extractCmd = "tar -xzf " + cacheFile + " -C " + libPath
-        Run extractCmd
-        
-        # Load package via KittyPort
-        KittyPort name
+        Set parts = KittySplitString(line, "=")
+        If Len(parts) >= 2 {
+            Set pkg = Trim(parts[0])
+            Set version = Trim(parts[1])
+            version = KittyReplaceString(version, "\"", "")
+            
+            Roar "📦 Installing " + pkg + " (" + version + ")"
+            
+            Set url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + pkg + "/" + version + "/package.tar.gz"
+            Set dest = "libs/" + pkg + ".tar.gz"
+            Set cacheFile = cacheDir + pkg + "_" + version + ".tar.gz"
+            
+            KittyFileExists cacheFile
+            If __result == 1 {
+                Roar "💾 Using cached: " + pkg
+                Run "cp " + cacheFile + " " + dest
+            } Else {
+                Run "curl -L -o " + dest + " " + url
+                Run "cp " + dest + " " + cacheFile
+            }
+            
+            Run "mkdir -p libs/" + pkg
+            Run "tar -xzf " + dest + " -C libs/" + pkg + "/"
+            Run "rm " + dest
+            
+            Roar "✅ Installed " + pkg
+            
+            lock_content = lock_content + pkg + " = \"" + version + "\"\n"
+            installed_packages = installed_packages + pkg + " "
+            
+            If KittyFileExists("libs/" + pkg + "/lynx.toml") {
+                KittyReadFile "libs/" + pkg + "/lynx.toml"
+                Set pkg_content = __file_content
+                Set pkg_lines = KittySplitString(pkg_content, "\n")
+                Set pkg_in_deps = 0
+                
+                For j = 0 To __result - 1 {
+                    Set pkg_line = __result[j]
+                    If KittyCheckIfStringContains(pkg_line, "[dependencies]") {
+                        pkg_in_deps = 1
+                        Continue
+                    }
+                    
+                    If pkg_in_deps == 1 {
+                        If pkg_line == "" { Continue }
+                        If KittyCheckIfStringContains(pkg_line, "[") {
+                            Break
+                        }
+                        
+                        Set pkg_parts = KittySplitString(pkg_line, "=")
+                        If Len(pkg_parts) >= 2 {
+                            Set dep_pkg = Trim(pkg_parts[0])
+                            Set dep_version = Trim(pkg_parts[1])
+                            dep_version = KittyReplaceString(dep_version, "\"", "")
+                            
+                            If KittyCheckIfStringContains(installed_packages, dep_pkg) == 0 {
+                                Roar "📦 Transitive dep: " + dep_pkg + " (" + dep_version + ")"
+                                Set dep_url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + dep_pkg + "/" + dep_version + "/package.tar.gz"
+                                Set dep_dest = "libs/" + dep_pkg + ".tar.gz"
+                                Set dep_cache = cacheDir + dep_pkg + "_" + dep_version + ".tar.gz"
+                                
+                                KittyFileExists dep_cache
+                                If __result == 1 {
+                                    Run "cp " + dep_cache + " " + dep_dest
+                                } Else {
+                                    Run "curl -L -o " + dep_dest + " " + dep_url
+                                    Run "cp " + dep_dest + " " + dep_cache
+                                }
+                                
+                                Run "mkdir -p libs/" + dep_pkg
+                                Run "tar -xzf " + dep_dest + " -C libs/" + dep_pkg + "/"
+                                Run "rm " + dep_dest
+                                
+                                lock_content = lock_content + dep_pkg + " = \"" + dep_version + "\"\n"
+                                installed_packages = installed_packages + dep_pkg + " "
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
-# Write lockfile
-KittyWriteFile "lynx.lock" "# Lynx Lockfile\n# Generated: " + getVarString("__date") + "\n"
+KittyWriteFile "lynx.lock" lock_content
 
-# Write each dependency to lockfile
-For i = 0 To depCount - 1 {
-    Set line = __result[i]
-    If KittyCheckIfStringContains(line "=") {
-        KittyWriteFile "lynx.lock" line + "\n"
-    }
-}
-
-Roar "✅ All dependencies installed!"
-Roar "   Lockfile updated: lynx.lock"
-Roar "   Cache: " + getenv("USERPROFILE") + "/.lynx/cache/"
+Roar "✅ All dependencies installed and locked"
