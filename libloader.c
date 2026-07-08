@@ -20,7 +20,7 @@ void load_lib(const char* lib_name) {
         }
     }
     
-    char path[MAX_PATH];
+    char path[LYNX_MAX_PATH];
     sprintf(path, ".\\lib\\%s.dll", lib_name);
     
     HINSTANCE handle = LoadLibrary(path);
