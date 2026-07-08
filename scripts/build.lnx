@@ -1,13 +1,31 @@
 Roar "🐾 Building Lynx project..."
 
-Set project_name = "my_project"
+KittyReadFile "lynx.toml"
+Set content = __file_content
 
-If __flag == 1 {
-    Roar "🔒 Standalone build"
-    Run "lynx --compile-to-exe src/main.lnx bin/" + project_name + ".exe --standalone"
-} Else {
-    Roar "🔗 Dynamic build"
-    Run "lynx --compile-to-exe src/main.lnx bin/" + project_name + ".exe"
+Set project_name = "my_project"
+Set lines = KittySplitString(content, "\n")
+For i = 0 To __result - 1 {
+    Set line = __result[i]
+    If KittyCheckIfStringContains(line, "name = ") {
+        Set parts = KittySplitString(line, "=")
+        If Len(parts) >= 2 {
+            Set project_name = Trim(parts[1])
+            Set project_name = KittyReplaceString(project_name, "\"", "")
+        }
+        Break
+    }
 }
 
-Roar "✅ Done"
+Paw "bin"
+
+KittyFileExists "src/main.lnx"
+If __result == 0 {
+    Roar "❌ src/main.lnx not found"
+    Exit
+}
+
+Roar "▶️ Running src/main.lnx..."
+Run "lynx src/main.lnx"
+
+Roar "✅ Build complete"
