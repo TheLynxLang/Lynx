@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
+#include "platform.h"
 #include <shellapi.h>
 #include <urlmon.h>
 #include <errno.h>
