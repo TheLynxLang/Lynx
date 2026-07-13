@@ -35,7 +35,7 @@ extern char* getTokenText(Token t);
 // ─── STRING HELPERS ────────────────────────────────────────────
 static char* str_trim_copy(const char* str) {
     while (isspace((unsigned char)*str)) str++;
-    if (*str == 0) return _strdup("");
+    if (*str == 0) return strdup("");
     const char* end = str + strlen(str) - 1;
     while (end > str && isspace((unsigned char)*end)) end--;
     size_t len = end - str + 1;
@@ -70,13 +70,13 @@ static char* str_replace(const char* src, const char* old, const char* new) {
 
 // ─── SPLIT STRING (Windows safe) ──────────────────────────────
 static char** split_string(const char* str, const char* delim, int* count) {
-    char* copy = _strdup(str);
+    char* copy = strdup(str);
     char** result = malloc(256 * sizeof(char*));
     *count = 0;
     char* next_token = NULL;
     char* token = strtok_s(copy, delim, &next_token);
     while (token && *count < 256) {
-        result[(*count)++] = _strdup(token);
+        result[(*count)++] = strdup(token);
         token = strtok_s(NULL, delim, &next_token);
     }
     free(copy);
@@ -218,7 +218,7 @@ static void kitty_port(const char* name) {
         varCount = savedCount;
         free(savedDen);
 
-        loaded_packages[loaded_pkg_count++] = _strdup(name);
+        loaded_packages[loaded_pkg_count++] = strdup(name);
         return;
     }
 
