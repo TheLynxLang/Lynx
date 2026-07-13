@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <string.h>
-#include <windows.h>
+// #include <windows.h>
 #include "lynx.h"
 #include "platform.h"
 
