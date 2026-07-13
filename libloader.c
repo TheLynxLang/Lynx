@@ -2,6 +2,7 @@
 #include <string.h>
 #include <windows.h>
 #include "lynx.h"
+#include "platform.h"
 
 typedef struct {
     char name[64];
