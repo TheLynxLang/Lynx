@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include "lynx.h"
+#include "platform.h"
 
 Scanner scanner;
 
