@@ -74,10 +74,10 @@ static char** split_string(const char* str, const char* delim, int* count) {
     char** result = malloc(256 * sizeof(char*));
     *count = 0;
     char* next_token = NULL;
-    char* token = strtok_s(copy, delim, &next_token);
+    char* token = strtok_r(copy, delim, &next_token);
     while (token && *count < 256) {
         result[(*count)++] = strdup(token);
-        token = strtok_s(NULL, delim, &next_token);
+        token = strtok_r(NULL, delim, &next_token);
     }
     free(copy);
     return result;
