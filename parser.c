@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <stdarg.h>
 #include "lynx.h"
+#include "platform.h"
 
 // ─── GLOBALS ──────────────────────────────────────────────────
 // These are defined in memory.c - only declare extern here
