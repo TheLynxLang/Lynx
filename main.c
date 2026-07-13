@@ -1,9 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-// #include <windows.h>
+#include <stdint.h>
+#include <ctype.h>
 #include "platform.h"
-#include <shellapi.h>
 #include <urlmon.h>
 #include <errno.h>
 #include "lynx.h"
