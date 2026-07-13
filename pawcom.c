@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include "lynx.h"
+#include "platform.h"
 
 #ifdef _WIN32
 #include <direct.h>
