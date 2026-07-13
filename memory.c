@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "lynx.h"
+#include "platform.h"
 
 // ─── GLOBAL DEFINITIONS ──────────────────────────────────────
 char* lynx_error = NULL;
