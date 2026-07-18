@@ -20,13 +20,15 @@ void initScanner(const char* source) {
         scanner.current += 3;
         scanner.start += 3;
     }
-    // Skip UTF-16 LE (FF FE)
+    
+    // Skip UTF-16 LE BOM (FF FE)
     if ((unsigned char)source[0] == 0xFF && 
         (unsigned char)source[1] == 0xFE) {
         scanner.current += 2;
         scanner.start += 2;
     }
-    // Skip UTF-16 BE (FE FF)
+    
+    // Skip UTF-16 BE BOM (FE FF)
     if ((unsigned char)source[0] == 0xFE && 
         (unsigned char)source[1] == 0xFF) {
         scanner.current += 2;
@@ -34,10 +36,22 @@ void initScanner(const char* source) {
     }
 }
 
-static bool isAtEnd() { return *scanner.current == '\0'; }
-static char advance() { scanner.col++; return *scanner.current++; }
-static char peek() { return *scanner.current; }
-static char peekNext() { return scanner.current[1]; }
+static bool isAtEnd() {
+    return *scanner.current == '\0';
+}
+
+static char advance() {
+    scanner.col++;
+    return *scanner.current++;
+}
+
+static char peek() {
+    return *scanner.current;
+}
+
+static char peekNext() {
+    return scanner.current[1];
+}
 
 static Token makeToken(LynxTokenType type) {
     Token token;
