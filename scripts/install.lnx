@@ -11,7 +11,7 @@ If KittyFileExists("lynx.lock") {
     Set lock_content = __file_content
     Set lock_lines = KittySplitString(lock_content, "\n")
 
-    For i = 0 To __result - 1 {
+    For i = 0 To __result_count - 1 {
         Set line = __result[i]
         If line == "" { Continue }
         Set parts = KittySplitString(line, "=")
@@ -26,7 +26,7 @@ If KittyFileExists("lynx.lock") {
             Set dest = "libs\\" + pkg + ".tar.gz"
             Set cacheFile = cacheDir + pkg + "_" + version + ".tar.gz"
             
-            KittyFileExists cacheFile
+            KittyFileExists(cacheFile)
             If __result == 1 {
                 Roar "💾 Using cached: " + pkg
                 Run "copy " + cacheFile + " " + dest
@@ -57,7 +57,7 @@ Set in_deps = 0
 Set installed_packages = ""
 Set lock_content = ""
 
-For i = 0 To __result - 1 {
+For i = 0 To __result_count - 1 {
     Set line = __result[i]
     
     If KittyCheckIfStringContains(line, "[dependencies]") {
@@ -83,7 +83,7 @@ For i = 0 To __result - 1 {
             Set dest = "libs\\" + pkg + ".tar.gz"
             Set cacheFile = cacheDir + pkg + "_" + version + ".tar.gz"
             
-            KittyFileExists cacheFile
+            KittyFileExists(cacheFile)
             If __result == 1 {
                 Roar "💾 Using cached: " + pkg
                 Run "copy " + cacheFile + " " + dest
@@ -107,7 +107,7 @@ For i = 0 To __result - 1 {
                 Set pkg_lines = KittySplitString(pkg_content, "\n")
                 Set pkg_in_deps = 0
                 
-                For j = 0 To __result - 1 {
+                For j = 0 To __result_count - 1 {
                     Set pkg_line = __result[j]
                     If KittyCheckIfStringContains(pkg_line, "[dependencies]") {
                         pkg_in_deps = 1
@@ -132,7 +132,7 @@ For i = 0 To __result - 1 {
                                 Set dep_dest = "libs\\" + dep_pkg + ".tar.gz"
                                 Set dep_cache = cacheDir + dep_pkg + "_" + dep_version + ".tar.gz"
                                 
-                                KittyFileExists dep_cache
+                                KittyFileExists(dep_cache)
                                 If __result == 1 {
                                     Run "copy " + dep_cache + " " + dep_dest
                                 } Else {
