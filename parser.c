@@ -188,8 +188,8 @@ double parse_primary() {
         
         if (value) {
             setVarString("__result", value);
-            setVar("__result", (double)strlen(value));
-            return (double)strlen(value);
+            setVar("__result", 0);  // FIXED: Return 0 instead of string length
+            return 0;               // FIXED: Return 0 instead of string length
         } else {
             setVarString("__result", "");
             setVar("__result", 0);
