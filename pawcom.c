@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <errno.h>
+#include <setjmp.h>
 #include "lynx.h"
 #include "platform.h"
 
@@ -15,6 +16,7 @@ extern Scanner scanner;
 extern char* lynx_error;
 extern char* loaded_packages[64];
 extern int loaded_pkg_count;
+extern TryState try_state;
 
 extern double parse_expression();
 extern void parse_block();
@@ -132,60 +134,79 @@ static void parse_array() {
 
 // ─── PARSE TRY / CATCH ────────────────────────────────────────
 static void parse_try_catch() {
-    char* saved_error = lynx_error ? strdup(lynx_error) : NULL;
-    clearError();
-
-    Token brace = scanToken();
-    if (brace.type != TOKEN_LBRACE) {
-        char* text = getTokenText(brace);
-        setErrorF("Try expects '{', got '%s' (type: %s)", 
-                  text, tokenTypeToString(brace.type));
-        return;
-    }
-
-    while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF) {
-        parse_statement();
-        if (lynx_error) break;
-    }
-    if (peekToken().type == TOKEN_RBRACE) scanToken();
-
-    if (!lynx_error) {
-        Token next = peekToken();
-        if (next.type == TOKEN_CATCH) {
-            scanToken();
-            brace = scanToken();
-            if (brace.type == TOKEN_LBRACE) {
-                int depth = 1;
-                while (depth > 0 && peekToken().type != TOKEN_EOF) {
-                    Token t = scanToken();
-                    if (t.type == TOKEN_LBRACE) depth++;
-                    if (t.type == TOKEN_RBRACE) depth--;
+    try_state.is_trying = 1;
+    try_state.caught = 0;
+    try_state.error_message = NULL;
+    try_state.error_line = 0;
+    try_state.error_col = 0;
+    
+    if (setjmp(try_state.env) == 0) {
+        // Try block
+        Token brace = scanToken();
+        if (brace.type != TOKEN_LBRACE) {
+            char* text = getTokenText(brace);
+            setErrorF("Try expects '{', got '%s' (type: %s)", 
+                      text, tokenTypeToString(brace.type));
+            try_state.is_trying = 0;
+            return;
+        }
+        
+        while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF) {
+            parse_statement();
+            if (lynx_error && !try_state.is_trying) break;
+        }
+        if (peekToken().type == TOKEN_RBRACE) scanToken();
+        
+        // If no error occurred, skip the Catch block
+        if (!lynx_error) {
+            try_state.is_trying = 0;
+            if (peekToken().type == TOKEN_CATCH) {
+                scanToken();  // Consume Catch
+                Token brace2 = scanToken();
+                if (brace2.type == TOKEN_LBRACE) {
+                    int depth = 1;
+                    while (depth > 0 && peekToken().type != TOKEN_EOF) {
+                        Token t = scanToken();
+                        if (t.type == TOKEN_LBRACE) depth++;
+                        if (t.type == TOKEN_RBRACE) depth--;
+                    }
                 }
             }
+        } else {
+            // Error occurred, but we'll handle it in the longjmp path
+            try_state.is_trying = 0;
         }
-        return;
+    } else {
+        // Catch block (jumped here from setError)
+        try_state.is_trying = 0;
+        try_state.caught = 1;
+        clearError();
+        
+        Token next = peekToken();
+        if (next.type != TOKEN_CATCH) {
+            // No Catch block - re-throw the error
+            if (try_state.error_message) {
+                fprintf(stderr, "🐾 %s\n", try_state.error_message);
+            }
+            return;
+        }
+        scanToken();  // Consume Catch
+        
+        Token brace = scanToken();
+        if (brace.type != TOKEN_LBRACE) {
+            char* text = getTokenText(brace);
+            setErrorF("Catch expects '{', got '%s' (type: %s)", 
+                      text, tokenTypeToString(brace.type));
+            return;
+        }
+        
+        while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF) {
+            parse_statement();
+            if (lynx_error) break;
+        }
+        if (peekToken().type == TOKEN_RBRACE) scanToken();
+        clearError();
     }
-
-    Token next = peekToken();
-    if (next.type != TOKEN_CATCH) {
-        return;
-    }
-
-    scanToken();
-    brace = scanToken();
-    if (brace.type != TOKEN_LBRACE) {
-        char* text = getTokenText(brace);
-        setErrorF("Catch expects '{', got '%s' (type: %s)", 
-                  text, tokenTypeToString(brace.type));
-        return;
-    }
-
-    while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF) {
-        parse_statement();
-        if (lynx_error) break;
-    }
-    if (peekToken().type == TOKEN_RBRACE) scanToken();
-    clearError();
 }
 
 // ─── KITTY PORT WITH EXPORT SUPPORT ───────────────────────────
@@ -542,10 +563,6 @@ int pawcom_parse_statement(Token t) {
 
     if (t.type == TOKEN_TRY) {
         parse_try_catch();
-        if (lynx_error) {
-            printf("%s\n", lynx_error);
-            clearError();
-        }
         return 1;
     }
 
