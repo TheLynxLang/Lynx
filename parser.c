@@ -54,8 +54,14 @@ void setErrorF(const char* format, ...) {
     vsnprintf(buffer, sizeof(buffer), format, args);
     va_end(args);
     
-    Token t = peekToken();
-    setError(buffer, t.line, t.col);
+    int line = 1, col = 1;
+    // Only peek token if scanner is initialized
+    if (scanner.current != NULL) {
+        Token t = peekToken();
+        line = t.line;
+        col = t.col;
+    }
+    setError(buffer, line, col);
 }
 
 // ─── PARSING ──────────────────────────────────────────────────────
