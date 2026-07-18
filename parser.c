@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdarg.h>
+#include <setjmp.h>
 #include "lynx.h"
 #include "platform.h"
 
@@ -10,6 +11,7 @@
 // These are defined in memory.c - only declare extern here
 extern char* lynx_error;
 extern LynxError lynx_error_state;
+extern TryState try_state;
 
 char* loaded_packages[64];
 int loaded_pkg_count = 0;
@@ -44,6 +46,14 @@ void setError(const char* msg, int line, int col) {
         }
         lynx_error_state.line = line;
         lynx_error_state.col = col;
+    }
+    
+    // If we're in a Try block, jump to Catch
+    if (try_state.is_trying) {
+        try_state.error_message = lynx_error_state.message;
+        try_state.error_line = line;
+        try_state.error_col = col;
+        longjmp(try_state.env, 1);
     }
 }
 
