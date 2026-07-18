@@ -1,4 +1,3 @@
-// platform.h
 #ifndef PLATFORM_H
 #define PLATFORM_H
 
@@ -6,11 +5,13 @@
     #include <windows.h>
     #include <shellapi.h>
     #include <direct.h>
+    #include <urlmon.h>
     #define strdup _strdup
     #define strtok_r strtok_s
     #define mkdir(path, mode) _mkdir(path)
     #define PATH_SEP '\\'
     #define PLATFORM_WINDOWS 1
+    #pragma comment(lib, "urlmon.lib")
 #else
     // Linux / POSIX
     #include <unistd.h>
@@ -30,13 +31,16 @@
     #define HMODULE void*
     #define FARPROC void*
 
-    // ----- Windows API → POSIX mappings -----
+    // ----- LoadLibrary macros (only if not already defined) -----
+    #ifndef LoadLibrary
     #define LoadLibrary(path) dlopen(path, RTLD_LAZY)
     #define GetProcAddress(handle, name) dlsym(handle, name)
     #define FreeLibrary(handle) dlclose(handle)
+    #endif
 
-    // ----- Stub out Windows-only stuff -----
-    #define ShellExecute(a,b,c,d,e,f) 0
+    // ----- Stub for Windows-only functions -----
+    #define URLDownloadToFileA(a,b,c,d,e) 0
+    #define S_OK 0
 #endif
 
 #endif
