@@ -176,4 +176,7 @@ void check_file(const char* path);
 
 void cleanup_all();
 
+// ─── PAWCOM ──────────────────────────────────────────────────
+int pawcom_parse_statement(Token t);  // <-- ADD THIS
+
 #endif
