@@ -91,7 +91,6 @@ void setVar(const char* name, double val) {
 void setVarString(const char* name, const char* value) {
     Variable* v = findVar(name);
     if (v) {
-        // Clean up existing data
         if (v->type == VAR_ARRAY) {
             for (int i = 0; i < v->array_capacity; i++) {
                 if (v->value.array[i]) {
@@ -118,10 +117,10 @@ void setVarString(const char* name, const char* value) {
         v->array_length = 0;
         v->array_capacity = 0;
         v->value.array = NULL;
+        printf("🐾 DEBUG: Updated string var '%s' = '%s'\n", name, value);
         return;
     }
     
-    // Create new variable
     if (varCount < MAX_VARS) {
         strcpy(den[varCount].name, name);
         den[varCount].type = VAR_STRING;
@@ -150,16 +149,18 @@ double getVar(const char* name) {
 }
 
 char* getVarString(const char* name) {
-    Variable* v = findVar(name);
-    if (!v) {
-        printf("🐾 DEBUG: getVarString - '%s' not found\n", name);
-        return "";
+    printf("🐾 DEBUG: getVarString looking for '%s' (varCount=%d)\n", name, varCount);
+    for (int i = 0; i < varCount; i++) {
+        printf("   den[%d].name='%s'\n", i, den[i].name);
+        if (strcmp(den[i].name, name) == 0) {
+            printf("   FOUND! type=%d\n", den[i].type);
+            if (den[i].type == VAR_STRING) {
+                printf("   value='%s'\n", den[i].value.strValue);
+                return den[i].value.strValue;
+            }
+        }
     }
-    if (v->type == VAR_STRING) {
-        printf("🐾 DEBUG: getVarString - '%s' = '%s'\n", name, v->value.strValue);
-        return v->value.strValue;
-    }
-    printf("🐾 DEBUG: getVarString - '%s' exists but type=%d\n", name, v->type);
+    printf("   NOT FOUND!\n");
     return "";
 }
 
