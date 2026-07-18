@@ -237,8 +237,8 @@ static void kitty_port(const char* name) {
 }
 
 // ─── MAIN DISPATCH ────────────────────────────────────────────
-void pawcom_parse_statement(Token t) {
-    if (t.type == TOKEN_HUNT) { hunt(); return; }
+int pawcom_parse_statement(Token t) {
+    if (t.type == TOKEN_HUNT) { hunt(); return 1; }
 
     if (t.type == TOKEN_ROAR) {
         Token val = scanToken();
@@ -266,7 +266,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_SET) {
@@ -277,7 +277,7 @@ void pawcom_parse_statement(Token t) {
                       text, tokenTypeToString(nameToken.type));
             printf("%s\n", lynx_error);
             clearError();
-            return;
+            return 1;
         }
         char varName[64];
         snprintf(varName, nameToken.length + 1, "%s", nameToken.start);
@@ -290,7 +290,7 @@ void pawcom_parse_statement(Token t) {
                     printf("%s\n", lynx_error);
                     clearError();
                 }
-                return;
+                return 1;
             }
             if (peekToken().type == TOKEN_STRING) {
                 Token str = scanToken();
@@ -302,7 +302,7 @@ void pawcom_parse_statement(Token t) {
                 if (lynx_error) {
                     printf("%s\n", lynx_error);
                     clearError();
-                    return;
+                    return 1;
                 }
                 setVar(varName, val);
             }
@@ -317,7 +317,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_STALK_PACK) {
@@ -337,7 +337,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_POUNCE) {
@@ -357,7 +357,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_LOAD_LIB) {
@@ -373,7 +373,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_KITTY_PORT) {
@@ -390,7 +390,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     // ─── FILE I/O ──────────────────────────────────────────────
@@ -418,7 +418,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_KITTY_READ_FILE) {
@@ -450,7 +450,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_PAW) {
@@ -478,7 +478,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_KITTY_FILE_EXISTS) {
@@ -496,7 +496,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_KITTY_REMOVE_FILE) {
@@ -516,7 +516,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_RUN) {
@@ -537,7 +537,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_TRY) {
@@ -546,7 +546,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_ARGV) {
@@ -571,7 +571,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_GET_ERROR) {
@@ -581,7 +581,7 @@ void pawcom_parse_statement(Token t) {
         } else {
             printf("OK\n");
         }
-        return;
+        return 1;
     }
 
     // ─── STRING FUNCTIONS ──────────────────────────────────────
@@ -611,7 +611,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_STRING_CONTAINS) {
@@ -631,7 +631,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_STRING_REPLACE) {
@@ -654,7 +654,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_TRIM) {
@@ -672,7 +672,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_LEN) {
@@ -688,7 +688,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     if (t.type == TOKEN_EXPORT) {
@@ -705,7 +705,7 @@ void pawcom_parse_statement(Token t) {
             printf("%s\n", lynx_error);
             clearError();
         }
-        return;
+        return 1;
     }
 
     // ─── UNKNOWN ────────────────────────────────────────────────
@@ -716,4 +716,5 @@ void pawcom_parse_statement(Token t) {
         printf("%s\n", lynx_error);
         clearError();
     }
+    return 0;
 }
