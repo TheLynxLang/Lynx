@@ -94,8 +94,6 @@ void setVarString(const char* name, const char* value) {
         return;
     }
     
-    printf("🐾 DEBUG: setVarString: name='%s', value='%s'\n", name, value);
-    
     Variable* v = findVar(name);
     if (v) {
         if (v->type == VAR_ARRAY) {
@@ -120,9 +118,6 @@ void setVarString(const char* name, const char* value) {
         v->value.strValue = malloc(strlen(value) + 1);
         if (v->value.strValue) {
             strcpy(v->value.strValue, value);
-            printf("🐾 DEBUG: Updated var '%s' = '%s'\n", name, v->value.strValue);
-        } else {
-            printf("🐾 ERROR: malloc failed\n");
         }
         v->array_length = 0;
         v->array_capacity = 0;
@@ -136,17 +131,13 @@ void setVarString(const char* name, const char* value) {
         den[varCount].value.strValue = malloc(strlen(value) + 1);
         if (den[varCount].value.strValue) {
             strcpy(den[varCount].value.strValue, value);
-            printf("🐾 DEBUG: Created var '%s' = '%s' (varCount=%d)\n", name, den[varCount].value.strValue, varCount + 1);
-        } else {
-            printf("🐾 ERROR: malloc failed\n");
-            den[varCount].value.strValue = NULL;
         }
         den[varCount].value.array = NULL;
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
         varCount++;
     } else {
-        printf("🐾 ERROR: varCount >= MAX_VARS\n");
+        printf("🐾 ERROR: varCount (%d) >= MAX_VARS (%d)\n", varCount, MAX_VARS);
     }
 }
 
@@ -163,14 +154,11 @@ double getVar(const char* name) {
 char* getVarString(const char* name) {
     Variable* v = findVar(name);
     if (!v) {
-        printf("🐾 DEBUG: getVarString - '%s' not found\n", name);
         return "";
     }
     if (v->type == VAR_STRING) {
-        printf("🐾 DEBUG: getVarString - '%s' = '%s'\n", name, v->value.strValue ? v->value.strValue : "(null)");
         return v->value.strValue ? v->value.strValue : "";
     }
-    printf("🐾 DEBUG: getVarString - '%s' type=%d\n", name, v->type);
     return "";
 }
 
@@ -439,6 +427,141 @@ int callFunction(const char* name) {
     printf("🐾 Function '%s' not found\n", name);
     recursionDepth--;
     return 0;
+}
+
+// ─── TEMP FILE VARIABLE SAVING ────────────────────────────────
+static char tempVarPath[LYNX_MAX_PATH];
+
+void save_vars_to_temp() {
+    #ifdef _WIN32
+    const char* tempDir = getenv("TEMP");
+    if (!tempDir) tempDir = "C:\\Temp";
+    snprintf(tempVarPath, LYNX_MAX_PATH, "%s\\.lynx_vars.tmp", tempDir);
+    #else
+    snprintf(tempVarPath, LYNX_MAX_PATH, "/tmp/.lynx_vars.tmp");
+    #endif
+    
+    FILE* f = fopen(tempVarPath, "w");
+    if (!f) {
+        printf("🐾 Warning: Could not save variables to temp file\n");
+        return;
+    }
+    
+    fprintf(f, "%d\n", varCount);
+    for (int i = 0; i < varCount; i++) {
+        fprintf(f, "%s|%d|", den[i].name, den[i].type);
+        if (den[i].type == VAR_NUMBER) {
+            fprintf(f, "%f\n", den[i].value.numValue);
+        } else if (den[i].type == VAR_STRING && den[i].value.strValue) {
+            fprintf(f, "%s\n", den[i].value.strValue);
+        } else if (den[i].type == VAR_ARRAY) {
+            fprintf(f, "%d\n", den[i].array_length);
+            for (int j = 0; j < den[i].array_length; j++) {
+                if (den[i].value.array[j]) {
+                    fprintf(f, "%d|", j);
+                    if (den[i].value.array[j]->type == VAR_NUMBER) {
+                        fprintf(f, "num|%f\n", den[i].value.array[j]->value.numValue);
+                    } else if (den[i].value.array[j]->type == VAR_STRING) {
+                        fprintf(f, "str|%s\n", den[i].value.array[j]->value.strValue ? den[i].value.array[j]->value.strValue : "");
+                    }
+                }
+            }
+            fprintf(f, "ENDARRAY\n");
+        }
+    }
+    fclose(f);
+}
+
+void load_vars_from_temp() {
+    FILE* f = fopen(tempVarPath, "r");
+    if (!f) {
+        return;
+    }
+    
+    // Clean up current variables
+    for (int i = 0; i < varCount; i++) {
+        if (den[i].type == VAR_STRING && den[i].value.strValue) {
+            free(den[i].value.strValue);
+            den[i].value.strValue = NULL;
+        }
+        if (den[i].type == VAR_ARRAY) {
+            for (int j = 0; j < den[i].array_capacity; j++) {
+                if (den[i].value.array[j]) {
+                    if (den[i].value.array[j]->type == VAR_STRING && den[i].value.array[j]->value.strValue) {
+                        free(den[i].value.array[j]->value.strValue);
+                        den[i].value.array[j]->value.strValue = NULL;
+                    }
+                    free(den[i].value.array[j]);
+                    den[i].value.array[j] = NULL;
+                }
+            }
+            free(den[i].value.array);
+            den[i].value.array = NULL;
+        }
+    }
+    varCount = 0;
+    
+    char line[4096];
+    if (!fgets(line, sizeof(line), f)) {
+        fclose(f);
+        return;
+    }
+    int savedCount = atoi(line);
+    if (savedCount > MAX_VARS) savedCount = MAX_VARS;
+    
+    for (int i = 0; i < savedCount; i++) {
+        if (!fgets(line, sizeof(line), f)) break;
+        
+        char name[64];
+        int type;
+        if (sscanf(line, "%[^|]|%d|", name, &type) != 2) {
+            continue;
+        }
+        
+        strcpy(den[varCount].name, name);
+        den[varCount].type = type;
+        
+        if (type == VAR_NUMBER) {
+            double val;
+            sscanf(line, "%*[^|]|%*d|%lf", &val);
+            den[varCount].value.numValue = val;
+            den[varCount].value.strValue = NULL;
+            den[varCount].value.array = NULL;
+            den[varCount].array_length = 0;
+            den[varCount].array_capacity = 0;
+            varCount++;
+        } else if (type == VAR_STRING) {
+            char* val = strchr(line, '|');
+            if (val) {
+                val = strchr(val + 1, '|');
+                if (val) {
+                    val++;
+                    size_t len = strlen(val);
+                    if (len > 0 && val[len-1] == '\n') val[len-1] = '\0';
+                    den[varCount].value.strValue = malloc(strlen(val) + 1);
+                    if (den[varCount].value.strValue) {
+                        strcpy(den[varCount].value.strValue, val);
+                    }
+                    den[varCount].value.array = NULL;
+                    den[varCount].array_length = 0;
+                    den[varCount].array_capacity = 0;
+                    varCount++;
+                }
+            }
+        } else if (type == VAR_ARRAY) {
+            den[varCount].value.array = NULL;
+            den[varCount].array_length = 0;
+            den[varCount].array_capacity = 0;
+            varCount++;
+        }
+    }
+    
+    fclose(f);
+    remove(tempVarPath);
+}
+
+void clear_temp_vars() {
+    remove(tempVarPath);
 }
 
 // ─── CLEANUP ────────────────────────────────────────────────────
