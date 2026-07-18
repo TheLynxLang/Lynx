@@ -10,7 +10,8 @@ Set lines_count = __result_count
 
 For i = 0 To lines_count - 1 {
     Set line = __result[i]
-    If KittyCheckIfStringContains(line, __pkg + " = ") {
+    KittyCheckIfStringContains(line, __pkg + " = ")
+    If __result == 1 {
         Set found = 1
         Continue
     }
@@ -33,7 +34,8 @@ If __result == 1 {
     Set lock_lines_count = __result_count
     For i = 0 To lock_lines_count - 1 {
         Set line = __result[i]
-        If KittyCheckIfStringContains(line, __pkg + " = ") {
+        KittyCheckIfStringContains(line, __pkg + " = ")
+        If __result == 1 {
             Continue
         }
         Set newLock = newLock + line + "\n"
