@@ -4,11 +4,8 @@
 #include <stdint.h>
 #include <ctype.h>
 #include "platform.h"
-#include <urlmon.h>
 #include <errno.h>
 #include "lynx.h"
-
-#pragma comment(lib, "urlmon.lib")
 
 #define LYNX_VERSION "v1.4.0"
 
@@ -51,19 +48,27 @@ void runFile(const char* path, int argc, char** argv) {
     
     if (!file) {
         char exePath[LYNX_MAX_PATH];
+        #ifdef _WIN32
         GetModuleFileNameA(NULL, exePath, LYNX_MAX_PATH);
-        char* lastSlash = strrchr(exePath, '\\');
+        #else
+        readlink("/proc/self/exe", exePath, LYNX_MAX_PATH);
+        #endif
+        char* lastSlash = strrchr(exePath, PATH_SEP);
         if (lastSlash) {
             *lastSlash = '\0';
-            snprintf(fullPath, LYNX_MAX_PATH, "%s\\%s", exePath, cleanPath);
+            snprintf(fullPath, LYNX_MAX_PATH, "%s%c%s", exePath, PATH_SEP, cleanPath);
             file = fopen(fullPath, "rb");
         }
     }
     
     if (!file) {
         char stdPath[LYNX_MAX_PATH];
-        snprintf(stdPath, LYNX_MAX_PATH, "%s\\LynxLang\\std\\%s", getenv("APPDATA"), cleanPath);
-        file = fopen(stdPath, "rb");
+        const char* appdata = getenv("APPDATA");
+        if (!appdata) appdata = getenv("HOME");
+        if (appdata) {
+            snprintf(stdPath, LYNX_MAX_PATH, "%s%cLynxLang%cstd%c%s", appdata, PATH_SEP, PATH_SEP, PATH_SEP, cleanPath);
+            file = fopen(stdPath, "rb");
+        }
     }
 
     if (!file) {
@@ -107,7 +112,9 @@ void runFile(const char* path, int argc, char** argv) {
 }
 
 int main(int argc, char* argv[]) {
+    #ifdef _WIN32
     SetConsoleOutputCP(65001);
+    #endif
     
     lynx_error_state.message = NULL;
     lynx_error_state.line = 0;
@@ -119,7 +126,9 @@ int main(int argc, char* argv[]) {
             show_help();
         } else if (_stricmp(argv[1], "--version") == 0) {
             printf("Lynx Engine %s\n", LYNX_VERSION);
-        } else if (_stricmp(argv[1], "--update") == 0) {
+        }
+        #ifdef _WIN32
+        else if (_stricmp(argv[1], "--update") == 0) {
             printf("🔄 Preparing update...\n");
             char tempInstaller[LYNX_MAX_PATH];
             sprintf(tempInstaller, "%s\\LynxInstaller.exe", getenv("TEMP"));
@@ -132,14 +141,14 @@ int main(int argc, char* argv[]) {
                 fprintf(stderr, "🐾 %s\n", lynx_error);
                 clearError();
             }
-        } else if (_stricmp(argv[1], "init") == 0) {
-            // Pass project name if provided
+        }
+        #endif
+        else if (_stricmp(argv[1], "init") == 0) {
             if (argc >= 3) {
                 setVarString("__project_name", argv[2]);
             } else {
                 setVarString("__project_name", "");
             }
-            // Pass author if provided
             if (argc >= 4) {
                 setVarString("__author", argv[3]);
             } else {
