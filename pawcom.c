@@ -32,6 +32,9 @@ extern void setErrorF(const char* format, ...);
 extern void clearError();
 extern const char* tokenTypeToString(LynxTokenType type);
 extern char* getTokenText(Token t);
+extern Variable* findVar(const char* name);  // ADD THIS LINE
+extern Variable den[];
+extern int varCount;
 
 static char* str_trim_copy(const char* str) {
     while (isspace((unsigned char)*str)) str++;
