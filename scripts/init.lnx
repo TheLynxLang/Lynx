@@ -1,20 +1,17 @@
 Roar "🐾 Initializing Lynx project..."
 
-Roar "Project name (default: my_project):"
-KittyReadFile "input"
-Set projectName = __file_content
-Set projectName = Trim(projectName)
+Set projectName = __project_name
 If Len(projectName) == 0 {
     Set projectName = "my_project"
 }
 
-Roar "Author name (default: Anonymous):"
-KittyReadFile "input"
-Set author = __file_content
-Set author = Trim(author)
+Set author = __author
 If Len(author) == 0 {
     Set author = "Anonymous"
 }
+
+Roar "Project name: " + projectName
+Roar "Author: " + author
 
 Set tomlContent = "[package]\n"
 Set tomlContent = tomlContent + "name = \"" + projectName + "\"\n"
