@@ -191,6 +191,11 @@ void check_file(const char* path);
 void cleanup_all();
 void parse_try_catch();
 
+// ─── TEMP FILE VARIABLE SAVING ──────────────────────────────
+void save_vars_to_temp();
+void load_vars_from_temp();
+void clear_temp_vars();
+
 // ─── PAWCOM ──────────────────────────────────────────────────
 int pawcom_parse_statement(Token t);
 
