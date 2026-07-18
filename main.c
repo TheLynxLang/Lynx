@@ -96,6 +96,28 @@ void runFile(const char* path, int argc, char** argv) {
         buf[size] = '\0';
         fclose(file);
 
+        // ─── SAVE VARIABLE STATE ──────────────────────────────
+        int savedVarCount = varCount;
+        Variable* savedDen = NULL;
+        if (varCount > 0) {
+            savedDen = malloc(varCount * sizeof(Variable));
+            if (savedDen) {
+                for (int i = 0; i < varCount; i++) {
+                    savedDen[i] = den[i];
+                    // Deep copy strings
+                    if (den[i].type == VAR_STRING && den[i].value.strValue) {
+                        savedDen[i].value.strValue = strdup(den[i].value.strValue);
+                    }
+                    if (den[i].type == VAR_ARRAY) {
+                        // For arrays, we'd need to deep copy - skip for now
+                        savedDen[i].value.array = NULL;
+                        savedDen[i].array_length = 0;
+                        savedDen[i].array_capacity = 0;
+                    }
+                }
+            }
+        }
+
         // Strip UTF-8 BOM (EF BB BF)
         if (size >= 3 &&
             (unsigned char)buf[0] == 0xEF &&
@@ -116,6 +138,42 @@ void runFile(const char* path, int argc, char** argv) {
             }
         }
         scanner = previousScanner;
+
+        // ─── RESTORE VARIABLE STATE ────────────────────────────
+        // Clean up current variables
+        for (int i = 0; i < varCount; i++) {
+            if (den[i].type == VAR_STRING && den[i].value.strValue) {
+                free(den[i].value.strValue);
+                den[i].value.strValue = NULL;
+            }
+            if (den[i].type == VAR_ARRAY) {
+                for (int j = 0; j < den[i].array_capacity; j++) {
+                    if (den[i].value.array[j]) {
+                        if (den[i].value.array[j]->type == VAR_STRING && 
+                            den[i].value.array[j]->value.strValue) {
+                            free(den[i].value.array[j]->value.strValue);
+                            den[i].value.array[j]->value.strValue = NULL;
+                        }
+                        free(den[i].value.array[j]);
+                        den[i].value.array[j] = NULL;
+                    }
+                }
+                free(den[i].value.array);
+                den[i].value.array = NULL;
+            }
+        }
+        
+        // Restore saved variables
+        if (savedDen) {
+            for (int i = 0; i < savedVarCount; i++) {
+                den[i] = savedDen[i];
+            }
+            varCount = savedVarCount;
+            free(savedDen);
+        } else {
+            varCount = 0;
+        }
+
         free(buf);
     }
 }
@@ -175,19 +233,7 @@ int main(int argc, char* argv[]) {
             return 0;
         } else if (STRICMP(argv[1], "add") == 0) {
             if (argc >= 3) {
-                printf("🐾 DEBUG: Setting __pkg to '%s'\n", argv[2]);
                 setVarString("__pkg", argv[2]);
-                
-                char* test = getVarString("__pkg");
-                printf("🐾 DEBUG: After setVarString, getVarString returned '%s'\n", test ? test : "(null)");
-                
-                printf("🐾 DEBUG: varCount = %d\n", varCount);
-                for (int i = 0; i < varCount; i++) {
-                    if (den[i].type == VAR_STRING) {
-                        printf("   den[%d].name='%s' val='%s'\n", i, den[i].name, den[i].value.strValue);
-                    }
-                }
-                
                 runFile("scripts/add.lnx", 0, NULL);
             } else {
                 setErrorF("Usage: lynx add <package>");
@@ -200,7 +246,6 @@ int main(int argc, char* argv[]) {
             return 0;
         } else if (STRICMP(argv[1], "remove") == 0) {
             if (argc >= 3) {
-                printf("🐾 DEBUG: Setting __pkg to '%s'\n", argv[2]);
                 setVarString("__pkg", argv[2]);
                 runFile("scripts/remove.lnx", 0, NULL);
             } else {
