@@ -191,9 +191,9 @@ static LynxTokenType checkKeyword() {
     if (len == 8 && strncmp(s, "GetError", 8) == 0) return TOKEN_GET_ERROR;
 
     // String functions
-    if (len == 15 && strncmp(s, "KittySplitString", 15) == 0) return TOKEN_STRING_SPLIT;
-    if (len == 24 && strncmp(s, "KittyCheckIfStringContains", 24) == 0) return TOKEN_STRING_CONTAINS;
-    if (len == 20 && strncmp(s, "KittyReplaceString", 20) == 0) return TOKEN_STRING_REPLACE;
+    if (len == 16 && strncmp(s, "KittySplitString", 16) == 0) return TOKEN_STRING_SPLIT;
+    if (len == 27 && strncmp(s, "KittyCheckIfStringContains", 27) == 0) return TOKEN_STRING_CONTAINS;
+    if (len == 19 && strncmp(s, "KittyReplaceString", 19) == 0) return TOKEN_STRING_REPLACE;
     if (len == 4 && strncmp(s, "Trim", 4) == 0) return TOKEN_TRIM;
     if (len == 3 && strncmp(s, "Len", 3) == 0) return TOKEN_LEN;
 
