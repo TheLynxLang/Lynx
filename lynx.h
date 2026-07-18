@@ -49,6 +49,7 @@ typedef enum {
 
     // System
     TOKEN_RUN,
+    TOKEN_GETENV,
 
     // Error
     TOKEN_GET_ERROR,
@@ -129,10 +130,10 @@ typedef struct {
 
 // ─── TRY/CATCH STATE ──────────────────────────────────────────
 typedef struct {
-    jmp_buf env;              // Jump buffer for longjmp
-    int is_trying;            // Flag: currently in Try block
-    int caught;               // Flag: error was caught
-    char* error_message;      // The error that was thrown
+    jmp_buf env;
+    int is_trying;
+    int caught;
+    char* error_message;
     int error_line;
     int error_col;
 } TryState;
@@ -188,6 +189,7 @@ void format_file(const char* path);
 void check_file(const char* path);
 
 void cleanup_all();
+void parse_try_catch();
 
 // ─── PAWCOM ──────────────────────────────────────────────────
 int pawcom_parse_statement(Token t);
