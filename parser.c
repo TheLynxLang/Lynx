@@ -129,6 +129,7 @@ double parse_primary() {
             setErrorF("Len expects '('", lparen.line, lparen.col);
             return 0;
         }
+        
         Token arg = scanToken();
         if (arg.type == TOKEN_IDENTIFIER) {
             char name[64];
@@ -136,6 +137,7 @@ double parse_primary() {
             char* str = getVarString(name);
             double result = (double)strlen(str);
             setVar("__result", result);
+            
             Token rparen = scanToken();
             if (rparen.type != TOKEN_RPAREN) {
                 setErrorF("Len expects ')'", rparen.line, rparen.col);
@@ -147,6 +149,7 @@ double parse_primary() {
             snprintf(str, arg.length - 1, "%s", arg.start + 1);
             double result = (double)strlen(str);
             setVar("__result", result);
+            
             Token rparen = scanToken();
             if (rparen.type != TOKEN_RPAREN) {
                 setErrorF("Len expects ')'", rparen.line, rparen.col);
@@ -166,19 +169,23 @@ double parse_primary() {
             setErrorF("getenv expects '('", lparen.line, lparen.col);
             return 0;
         }
+        
         Token arg = scanToken();
         if (arg.type != TOKEN_STRING) {
             setErrorF("getenv expects a string", arg.line, arg.col);
             return 0;
         }
+        
         char name[256];
         snprintf(name, arg.length - 1, "%s", arg.start + 1);
         const char* value = getenv(name);
+        
         Token rparen = scanToken();
         if (rparen.type != TOKEN_RPAREN) {
             setErrorF("getenv expects ')'", rparen.line, rparen.col);
             return 0;
         }
+        
         if (value) {
             setVarString("__result", value);
             setVar("__result", (double)strlen(value));
@@ -197,9 +204,11 @@ double parse_primary() {
             setErrorF("KittyCheckIfStringContains expects '('", lparen.line, lparen.col);
             return 0;
         }
+        
         Token hayTok = scanToken();
         Token comma = scanToken();
         Token needleTok = scanToken();
+        
         if (hayTok.type != TOKEN_STRING && hayTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittyCheckIfStringContains expects string or variable", hayTok.line, hayTok.col);
             return 0;
@@ -208,6 +217,7 @@ double parse_primary() {
             setErrorF("KittyCheckIfStringContains expects string or variable", needleTok.line, needleTok.col);
             return 0;
         }
+        
         char hay[4096], needle[4096];
         if (hayTok.type == TOKEN_STRING) {
             snprintf(hay, hayTok.length - 1, "%s", hayTok.start + 1);
@@ -217,6 +227,7 @@ double parse_primary() {
             char* val = getVarString(name);
             snprintf(hay, sizeof(hay), "%s", val);
         }
+        
         if (needleTok.type == TOKEN_STRING) {
             snprintf(needle, needleTok.length - 1, "%s", needleTok.start + 1);
         } else {
@@ -225,11 +236,13 @@ double parse_primary() {
             char* val = getVarString(name);
             snprintf(needle, sizeof(needle), "%s", val);
         }
+        
         Token rparen = scanToken();
         if (rparen.type != TOKEN_RPAREN) {
             setErrorF("KittyCheckIfStringContains expects ')'", rparen.line, rparen.col);
             return 0;
         }
+        
         int result = str_contains(hay, needle);
         setVar("__result", result ? 1.0 : 0.0);
         return result ? 1.0 : 0.0;
@@ -242,9 +255,11 @@ double parse_primary() {
             setErrorF("KittySplitString expects '('", lparen.line, lparen.col);
             return 0;
         }
+        
         Token strTok = scanToken();
         Token comma = scanToken();
         Token delimTok = scanToken();
+        
         if (strTok.type != TOKEN_STRING && strTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittySplitString expects string or variable", strTok.line, strTok.col);
             return 0;
@@ -253,6 +268,7 @@ double parse_primary() {
             setErrorF("KittySplitString expects string or variable", delimTok.line, delimTok.col);
             return 0;
         }
+        
         char str[4096], delim[256];
         if (strTok.type == TOKEN_STRING) {
             snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
@@ -262,6 +278,7 @@ double parse_primary() {
             char* val = getVarString(name);
             snprintf(str, sizeof(str), "%s", val);
         }
+        
         if (delimTok.type == TOKEN_STRING) {
             snprintf(delim, delimTok.length - 1, "%s", delimTok.start + 1);
         } else {
@@ -270,11 +287,13 @@ double parse_primary() {
             char* val = getVarString(name);
             snprintf(delim, sizeof(delim), "%s", val);
         }
+        
         Token rparen = scanToken();
         if (rparen.type != TOKEN_RPAREN) {
             setErrorF("KittySplitString expects ')'", rparen.line, rparen.col);
             return 0;
         }
+        
         int count = 0;
         char** result = split_string(str, delim, &count);
         for (int i = 0; i < count; i++) {
@@ -293,11 +312,13 @@ double parse_primary() {
             setErrorF("KittyReplaceString expects '('", lparen.line, lparen.col);
             return 0;
         }
+        
         Token srcTok = scanToken();
         Token comma1 = scanToken();
         Token oldTok = scanToken();
         Token comma2 = scanToken();
         Token newTok = scanToken();
+        
         if (srcTok.type != TOKEN_STRING && srcTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittyReplaceString expects string or variable", srcTok.line, srcTok.col);
             return 0;
@@ -310,6 +331,7 @@ double parse_primary() {
             setErrorF("KittyReplaceString expects string or variable", newTok.line, newTok.col);
             return 0;
         }
+        
         char src[4096], old[256], new[256];
         if (srcTok.type == TOKEN_STRING) {
             snprintf(src, srcTok.length - 1, "%s", srcTok.start + 1);
@@ -335,11 +357,13 @@ double parse_primary() {
             char* val = getVarString(name);
             snprintf(new, sizeof(new), "%s", val);
         }
+        
         Token rparen = scanToken();
         if (rparen.type != TOKEN_RPAREN) {
             setErrorF("KittyReplaceString expects ')'", rparen.line, rparen.col);
             return 0;
         }
+        
         char* result = str_replace(src, old, new);
         setVarString("__result", result);
         return (double)strlen(result);
@@ -352,11 +376,13 @@ double parse_primary() {
             setErrorF("Trim expects '('", lparen.line, lparen.col);
             return 0;
         }
+        
         Token strTok = scanToken();
         if (strTok.type != TOKEN_STRING && strTok.type != TOKEN_IDENTIFIER) {
             setErrorF("Trim expects string or variable", strTok.line, strTok.col);
             return 0;
         }
+        
         char str[4096];
         if (strTok.type == TOKEN_STRING) {
             snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
@@ -366,11 +392,13 @@ double parse_primary() {
             char* val = getVarString(name);
             snprintf(str, sizeof(str), "%s", val);
         }
+        
         Token rparen = scanToken();
         if (rparen.type != TOKEN_RPAREN) {
             setErrorF("Trim expects ')'", rparen.line, rparen.col);
             return 0;
         }
+        
         char* trimmed = str_trim_copy(str);
         setVarString("__result", trimmed);
         free(trimmed);
@@ -384,11 +412,13 @@ double parse_primary() {
             setErrorF("KittyFileExists expects '('", lparen.line, lparen.col);
             return 0;
         }
+        
         Token pathTok = scanToken();
         if (pathTok.type != TOKEN_STRING && pathTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittyFileExists expects string or variable", pathTok.line, pathTok.col);
             return 0;
         }
+        
         char path[4096];
         if (pathTok.type == TOKEN_STRING) {
             snprintf(path, pathTok.length - 1, "%s", pathTok.start + 1);
@@ -398,11 +428,13 @@ double parse_primary() {
             char* val = getVarString(name);
             snprintf(path, sizeof(path), "%s", val);
         }
+        
         Token rparen = scanToken();
         if (rparen.type != TOKEN_RPAREN) {
             setErrorF("KittyFileExists expects ')'", rparen.line, rparen.col);
             return 0;
         }
+        
         FILE* f = fopen(path, "r");
         int exists = f ? 1 : 0;
         if (f) fclose(f);
