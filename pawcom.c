@@ -82,25 +82,6 @@ static char** split_string(const char* str, const char* delim, int* count) {
     return result;
 }
 
-// Helper: Get string from token (string literal or variable)
-static char* getStringFromToken(Token tok, char* buffer, size_t bufferSize) {
-    if (tok.type == TOKEN_STRING) {
-        snprintf(buffer, bufferSize, "%.*s", tok.length - 2, tok.start + 1);
-        return buffer;
-    } else if (tok.type == TOKEN_IDENTIFIER) {
-        char name[64];
-        snprintf(name, tok.length + 1, "%s", tok.start);
-        char* val = getVarString(name);
-        if (val && strlen(val) > 0) {
-            snprintf(buffer, bufferSize, "%s", val);
-            return buffer;
-        } else {
-            return NULL;
-        }
-    }
-    return NULL;
-}
-
 static void parse_array() {
     Token nameToken = scanToken();
     if (nameToken.type != TOKEN_IDENTIFIER) {
@@ -265,72 +246,6 @@ static void kitty_port(const char* name) {
     clearError();
 }
 
-// ─── BUILD STRING FROM TOKENS ──────────────────────────────────
-static char* build_string_from_tokens() {
-    static char result[4096];
-    result[0] = '\0';
-    
-    while (1) {
-        Token tok = scanToken();
-        
-        if (tok.type == TOKEN_STRING) {
-            char part[4096];
-            snprintf(part, tok.length - 1, "%s", tok.start + 1);
-            strncat(result, part, sizeof(result) - strlen(result) - 1);
-        } else if (tok.type == TOKEN_IDENTIFIER) {
-            char name[64];
-            snprintf(name, tok.length + 1, "%s", tok.start);
-            char* val = getVarString(name);
-            if (val && strlen(val) > 0) {
-                strncat(result, val, sizeof(result) - strlen(result) - 1);
-            } else {
-                double num = getVar(name);
-                char numStr[32];
-                snprintf(numStr, sizeof(numStr), "%.5f", num);
-                strncat(result, numStr, sizeof(result) - strlen(result) - 1);
-            }
-        } else if (tok.type == TOKEN_NUMBER) {
-            char numStr[32];
-            snprintf(numStr, sizeof(numStr), "%.5f", atof(tok.start));
-            strncat(result, numStr, sizeof(result) - strlen(result) - 1);
-        } else {
-            if (tok.type != TOKEN_PLUS) {
-                break;
-            }
-            continue;
-        }
-        
-        Token next = peekToken();
-        if (next.type == TOKEN_PLUS) {
-            scanToken();
-            continue;
-        } else {
-            break;
-        }
-    }
-    
-    return result;
-}
-
-// Helper: Get path string from token (supports string literals and variables)
-static char* getPathFromToken(Token tok, char* buffer, size_t bufferSize) {
-    if (tok.type == TOKEN_STRING) {
-        snprintf(buffer, bufferSize, "%.*s", tok.length - 2, tok.start + 1);
-        return buffer;
-    } else if (tok.type == TOKEN_IDENTIFIER) {
-        char name[64];
-        snprintf(name, tok.length + 1, "%s", tok.start);
-        char* val = getVarString(name);
-        if (val && strlen(val) > 0) {
-            snprintf(buffer, bufferSize, "%s", val);
-            return buffer;
-        } else {
-            return NULL;
-        }
-    }
-    return NULL;
-}
-
 int pawcom_parse_statement(Token t) {
     if (t.type == TOKEN_HUNT) { hunt(); return 1; }
 
@@ -432,8 +347,9 @@ int pawcom_parse_statement(Token t) {
             return 1;
         }
 
+        // Check if we're building a string (first token is string, identifier, or number)
         Token first = peekToken();
-        if (first.type == TOKEN_STRING || first.type == TOKEN_IDENTIFIER) {
+        if (first.type == TOKEN_STRING || first.type == TOKEN_IDENTIFIER || first.type == TOKEN_NUMBER) {
             char result[4096] = "";
             
             while (1) {
@@ -449,6 +365,11 @@ int pawcom_parse_statement(Token t) {
                     char* val = getVarString(name);
                     if (val && strlen(val) > 0) {
                         strncat(result, val, sizeof(result) - strlen(result) - 1);
+                    } else {
+                        double num = getVar(name);
+                        char numStr[32];
+                        snprintf(numStr, sizeof(numStr), "%.5f", num);
+                        strncat(result, numStr, sizeof(result) - strlen(result) - 1);
                     }
                 } else if (tok.type == TOKEN_NUMBER) {
                     char numStr[32];
@@ -476,6 +397,7 @@ int pawcom_parse_statement(Token t) {
             
             setVarString(varName, result);
         } else {
+            // Numeric expression
             double val = parse_expression();
             if (lynx_error) {
                 printf("%s\n", lynx_error);
@@ -560,7 +482,6 @@ int pawcom_parse_statement(Token t) {
         return 1;
     }
 
-    // ─── KITTY_WRITE_FILE ──────────────────────────────────────
     if (t.type == TOKEN_KITTY_WRITE_FILE) {
         Token pathToken = scanToken();
         Token contentToken = scanToken();
@@ -617,7 +538,6 @@ int pawcom_parse_statement(Token t) {
         return 1;
     }
 
-    // ─── KITTY_READ_FILE ──────────────────────────────────────
     if (t.type == TOKEN_KITTY_READ_FILE) {
         Token pathToken = scanToken();
         char p[4096];
@@ -659,7 +579,6 @@ int pawcom_parse_statement(Token t) {
                 buf[size] = '\0';
                 fclose(f);
                 setVarString("__file_content", buf);
-                printf("%s\n", buf);
                 free(buf);
             } else {
                 setErrorF("KittyReadFile: File '%s' not found", pathStr);
@@ -670,7 +589,6 @@ int pawcom_parse_statement(Token t) {
         return 1;
     }
 
-    // ─── PAW ──────────────────────────────────────────────────
     if (t.type == TOKEN_PAW) {
         Token pathToken = scanToken();
         char p[4096];
@@ -719,7 +637,6 @@ int pawcom_parse_statement(Token t) {
         return 1;
     }
 
-    // ─── KITTY_FILE_EXISTS ──────────────────────────────────
     if (t.type == TOKEN_KITTY_FILE_EXISTS) {
         Token pathToken = scanToken();
         char p[4096];
@@ -862,14 +779,71 @@ int pawcom_parse_statement(Token t) {
     if (t.type == TOKEN_STRING_SPLIT) {
         Token strTok = scanToken();
         Token delimTok = scanToken();
-        if (strTok.type == TOKEN_STRING && delimTok.type == TOKEN_STRING) {
-            char str[4096];
-            char delim[256];
+        
+        char str[4096], delim[256];
+        char* strVal = NULL;
+        char* delimVal = NULL;
+        
+        // Get string value
+        if (strTok.type == TOKEN_STRING) {
             snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
+            strVal = str;
+        } else if (strTok.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, strTok.length + 1, "%s", strTok.start);
+            char* val = getVarString(name);
+            if (val && strlen(val) > 0) {
+                snprintf(str, sizeof(str), "%s", val);
+                strVal = str;
+            } else {
+                setErrorF("KittySplitString: variable '%s' is not a string or is empty", name);
+                printf("%s\n", lynx_error);
+                clearError();
+                return 1;
+            }
+        }
+        
+        // Get delimiter value
+        if (delimTok.type == TOKEN_STRING) {
             snprintf(delim, delimTok.length - 1, "%s", delimTok.start + 1);
+            delimVal = delim;
+        } else if (delimTok.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, delimTok.length + 1, "%s", delimTok.start);
+            char* val = getVarString(name);
+            if (val && strlen(val) > 0) {
+                snprintf(delim, sizeof(delim), "%s", val);
+                delimVal = delim;
+            } else {
+                setErrorF("KittySplitString: delimiter variable '%s' is not a string or is empty", name);
+                printf("%s\n", lynx_error);
+                clearError();
+                return 1;
+            }
+        }
+        
+        if (strVal && delimVal) {
+            // Clear existing __result array
+            Variable* v = findVar("__result");
+            if (v && v->type == VAR_ARRAY) {
+                for (int i = 0; i < v->array_capacity; i++) {
+                    if (v->value.array[i]) {
+                        if (v->value.array[i]->type == VAR_STRING && v->value.array[i]->value.strValue) {
+                            free(v->value.array[i]->value.strValue);
+                            v->value.array[i]->value.strValue = NULL;
+                        }
+                        free(v->value.array[i]);
+                        v->value.array[i] = NULL;
+                    }
+                }
+                free(v->value.array);
+                v->value.array = NULL;
+                v->array_length = 0;
+                v->array_capacity = 0;
+            }
             
             int count = 0;
-            char** result = split_string(str, delim, &count);
+            char** result = split_string(strVal, delimVal, &count);
             
             for (int i = 0; i < count; i++) {
                 setArrayStringElement("__result", i, result[i]);
@@ -891,12 +865,48 @@ int pawcom_parse_statement(Token t) {
     if (t.type == TOKEN_STRING_CONTAINS) {
         Token hayTok = scanToken();
         Token needleTok = scanToken();
-        if (hayTok.type == TOKEN_STRING && needleTok.type == TOKEN_STRING) {
-            char hay[4096];
-            char needle[256];
+        char hay[4096], needle[4096];
+        char* hayVal = NULL;
+        char* needleVal = NULL;
+        
+        if (hayTok.type == TOKEN_STRING) {
             snprintf(hay, hayTok.length - 1, "%s", hayTok.start + 1);
+            hayVal = hay;
+        } else if (hayTok.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, hayTok.length + 1, "%s", hayTok.start);
+            char* val = getVarString(name);
+            if (val && strlen(val) > 0) {
+                snprintf(hay, sizeof(hay), "%s", val);
+                hayVal = hay;
+            } else {
+                setErrorF("KittyCheckIfStringContains: haystack variable '%s' is not a string or is empty", name);
+                printf("%s\n", lynx_error);
+                clearError();
+                return 1;
+            }
+        }
+        
+        if (needleTok.type == TOKEN_STRING) {
             snprintf(needle, needleTok.length - 1, "%s", needleTok.start + 1);
-            setVar("__result", str_contains(hay, needle) ? 1.0 : 0.0);
+            needleVal = needle;
+        } else if (needleTok.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, needleTok.length + 1, "%s", needleTok.start);
+            char* val = getVarString(name);
+            if (val && strlen(val) > 0) {
+                snprintf(needle, sizeof(needle), "%s", val);
+                needleVal = needle;
+            } else {
+                setErrorF("KittyCheckIfStringContains: needle variable '%s' is not a string or is empty", name);
+                printf("%s\n", lynx_error);
+                clearError();
+                return 1;
+            }
+        }
+        
+        if (hayVal && needleVal) {
+            setVar("__result", str_contains(hayVal, needleVal) ? 1.0 : 0.0);
         } else {
             char* text1 = getTokenText(hayTok);
             char* text2 = getTokenText(needleTok);
