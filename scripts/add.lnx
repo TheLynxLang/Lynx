@@ -4,7 +4,7 @@ Set pkgName = __pkg
 Set version = "latest"
 
 # Check if version is specified with @
-KittySplitString(__pkg, "@")
+KittySplitString __pkg "@"
 If __result_count >= 2 {
     Set pkgName = __result[0]
     Set version = __result[1]
@@ -13,7 +13,7 @@ If __result_count >= 2 {
 KittyReadFile "lynx.toml"
 Set content = __file_content
 
-KittyCheckIfStringContains(content, pkgName + " = ")
+KittyCheckIfStringContains content (pkgName + " = ")
 If __result == 1 {
     Roar "⚠️ Package already exists: " + pkgName
 } Else {
