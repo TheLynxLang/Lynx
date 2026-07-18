@@ -13,17 +13,20 @@ void initScanner(const char* source) {
     scanner.line = 1;
     scanner.col = 1;
     
+    // Skip UTF-8 BOM (EF BB BF)
     if ((unsigned char)source[0] == 0xEF && 
         (unsigned char)source[1] == 0xBB && 
         (unsigned char)source[2] == 0xBF) {
         scanner.current += 3;
         scanner.start += 3;
     }
+    // Skip UTF-16 LE (FF FE)
     if ((unsigned char)source[0] == 0xFF && 
         (unsigned char)source[1] == 0xFE) {
         scanner.current += 2;
         scanner.start += 2;
     }
+    // Skip UTF-16 BE (FE FF)
     if ((unsigned char)source[0] == 0xFE && 
         (unsigned char)source[1] == 0xFF) {
         scanner.current += 2;
@@ -128,47 +131,48 @@ char* getTokenText(Token t) {
 
 static LynxTokenType checkKeyword() {
     const char* s = scanner.start;
-    
-    // All keywords - using strcmp without length checks
-    if (strcmp(s, "Try") == 0) return TOKEN_TRY;
-    if (strcmp(s, "Catch") == 0) return TOKEN_CATCH;
-    if (strcmp(s, "Set") == 0) return TOKEN_SET;
-    if (strcmp(s, "Roar") == 0) return TOKEN_ROAR;
-    if (strcmp(s, "Hunt") == 0) return TOKEN_HUNT;
-    if (strcmp(s, "Help") == 0) return TOKEN_HELP;
-    if (strcmp(s, "Stalk_Pack") == 0) return TOKEN_STALK_PACK;
-    if (strcmp(s, "Pounce") == 0) return TOKEN_POUNCE;
-    if (strcmp(s, "If") == 0) return TOKEN_IF;
-    if (strcmp(s, "Else") == 0) return TOKEN_ELSE;
-    if (strcmp(s, "LoadLib") == 0) return TOKEN_LOAD_LIB;
-    if (strcmp(s, "Func") == 0) return TOKEN_FUNC;
-    if (strcmp(s, "Return") == 0) return TOKEN_RETURN;
-    if (strcmp(s, "For") == 0) return TOKEN_FOR;
-    if (strcmp(s, "While") == 0) return TOKEN_WHILE;
-    if (strcmp(s, "Break") == 0) return TOKEN_BREAK;
-    if (strcmp(s, "Continue") == 0) return TOKEN_CONTINUE;
-    if (strcmp(s, "And") == 0) return TOKEN_AND;
-    if (strcmp(s, "Or") == 0) return TOKEN_OR;
-    if (strcmp(s, "Not") == 0) return TOKEN_NOT;
-    if (strcmp(s, "Run") == 0) return TOKEN_RUN;
-    if (strcmp(s, "getenv") == 0) return TOKEN_GETENV;
-    if (strcmp(s, "Argv") == 0) return TOKEN_ARGV;
-    if (strcmp(s, "Export") == 0) return TOKEN_EXPORT;
-    if (strcmp(s, "KittyWriteFile") == 0) return TOKEN_KITTY_WRITE_FILE;
-    if (strcmp(s, "KittyReadFile") == 0) return TOKEN_KITTY_READ_FILE;
-    if (strcmp(s, "Paw") == 0) return TOKEN_PAW;
-    if (strcmp(s, "KittyFileExists") == 0) return TOKEN_KITTY_FILE_EXISTS;
-    if (strcmp(s, "KittyListFiles") == 0) return TOKEN_KITTY_LIST_FILES;
-    if (strcmp(s, "KittyRemoveFile") == 0) return TOKEN_KITTY_REMOVE_FILE;
-    if (strcmp(s, "KittyReadDir") == 0) return TOKEN_KITTY_READ_DIR;
-    if (strcmp(s, "KittyPort") == 0) return TOKEN_KITTY_PORT;
-    if (strcmp(s, "GetError") == 0) return TOKEN_GET_ERROR;
-    if (strcmp(s, "KittySplitString") == 0) return TOKEN_STRING_SPLIT;
-    if (strcmp(s, "KittyCheckIfStringContains") == 0) return TOKEN_STRING_CONTAINS;
-    if (strcmp(s, "KittyReplaceString") == 0) return TOKEN_STRING_REPLACE;
-    if (strcmp(s, "Trim") == 0) return TOKEN_TRIM;
-    if (strcmp(s, "Len") == 0) return TOKEN_LEN;
-    
+    int len = (int)(scanner.current - scanner.start);
+
+    // Direct character comparison – NO string functions
+    if (len == 3 && s[0] == 'T' && s[1] == 'r' && s[2] == 'y') return TOKEN_TRY;
+    if (len == 5 && s[0] == 'C' && s[1] == 'a' && s[2] == 't' && s[3] == 'c' && s[4] == 'h') return TOKEN_CATCH;
+    if (len == 3 && s[0] == 'S' && s[1] == 'e' && s[2] == 't') return TOKEN_SET;
+    if (len == 4 && s[0] == 'R' && s[1] == 'o' && s[2] == 'a' && s[3] == 'r') return TOKEN_ROAR;
+    if (len == 4 && s[0] == 'H' && s[1] == 'u' && s[2] == 'n' && s[3] == 't') return TOKEN_HUNT;
+    if (len == 4 && s[0] == 'H' && s[1] == 'e' && s[2] == 'l' && s[3] == 'p') return TOKEN_HELP;
+    if (len == 10 && s[0] == 'S' && s[1] == 't' && s[2] == 'a' && s[3] == 'l' && s[4] == 'k' && s[5] == '_' && s[6] == 'P' && s[7] == 'a' && s[8] == 'c' && s[9] == 'k') return TOKEN_STALK_PACK;
+    if (len == 6 && s[0] == 'P' && s[1] == 'o' && s[2] == 'u' && s[3] == 'n' && s[4] == 'c' && s[5] == 'e') return TOKEN_POUNCE;
+    if (len == 2 && s[0] == 'I' && s[1] == 'f') return TOKEN_IF;
+    if (len == 4 && s[0] == 'E' && s[1] == 'l' && s[2] == 's' && s[3] == 'e') return TOKEN_ELSE;
+    if (len == 7 && s[0] == 'L' && s[1] == 'o' && s[2] == 'a' && s[3] == 'd' && s[4] == 'L' && s[5] == 'i' && s[6] == 'b') return TOKEN_LOAD_LIB;
+    if (len == 4 && s[0] == 'F' && s[1] == 'u' && s[2] == 'n' && s[3] == 'c') return TOKEN_FUNC;
+    if (len == 6 && s[0] == 'R' && s[1] == 'e' && s[2] == 't' && s[3] == 'u' && s[4] == 'r' && s[5] == 'n') return TOKEN_RETURN;
+    if (len == 3 && s[0] == 'F' && s[1] == 'o' && s[2] == 'r') return TOKEN_FOR;
+    if (len == 5 && s[0] == 'W' && s[1] == 'h' && s[2] == 'i' && s[3] == 'l' && s[4] == 'e') return TOKEN_WHILE;
+    if (len == 5 && s[0] == 'B' && s[1] == 'r' && s[2] == 'e' && s[3] == 'a' && s[4] == 'k') return TOKEN_BREAK;
+    if (len == 8 && s[0] == 'C' && s[1] == 'o' && s[2] == 'n' && s[3] == 't' && s[4] == 'i' && s[5] == 'n' && s[6] == 'u' && s[7] == 'e') return TOKEN_CONTINUE;
+    if (len == 3 && s[0] == 'A' && s[1] == 'n' && s[2] == 'd') return TOKEN_AND;
+    if (len == 2 && s[0] == 'O' && s[1] == 'r') return TOKEN_OR;
+    if (len == 3 && s[0] == 'N' && s[1] == 'o' && s[2] == 't') return TOKEN_NOT;
+    if (len == 3 && s[0] == 'R' && s[1] == 'u' && s[2] == 'n') return TOKEN_RUN;
+    if (len == 6 && s[0] == 'g' && s[1] == 'e' && s[2] == 't' && s[3] == 'e' && s[4] == 'n' && s[5] == 'v') return TOKEN_GETENV;
+    if (len == 4 && s[0] == 'A' && s[1] == 'r' && s[2] == 'g' && s[3] == 'v') return TOKEN_ARGV;
+    if (len == 6 && s[0] == 'E' && s[1] == 'x' && s[2] == 'p' && s[3] == 'o' && s[4] == 'r' && s[5] == 't') return TOKEN_EXPORT;
+    if (len == 14 && s[0] == 'K' && s[1] == 'i' && s[2] == 't' && s[3] == 't' && s[4] == 'y' && s[5] == 'W' && s[6] == 'r' && s[7] == 'i' && s[8] == 't' && s[9] == 'e' && s[10] == 'F' && s[11] == 'i' && s[12] == 'l' && s[13] == 'e') return TOKEN_KITTY_WRITE_FILE;
+    if (len == 13 && s[0] == 'K' && s[1] == 'i' && s[2] == 't' && s[3] == 't' && s[4] == 'y' && s[5] == 'R' && s[6] == 'e' && s[7] == 'a' && s[8] == 'd' && s[9] == 'F' && s[10] == 'i' && s[11] == 'l' && s[12] == 'e') return TOKEN_KITTY_READ_FILE;
+    if (len == 3 && s[0] == 'P' && s[1] == 'a' && s[2] == 'w') return TOKEN_PAW;
+    if (len == 15 && s[0] == 'K' && s[1] == 'i' && s[2] == 't' && s[3] == 't' && s[4] == 'y' && s[5] == 'F' && s[6] == 'i' && s[7] == 'l' && s[8] == 'e' && s[9] == 'E' && s[10] == 'x' && s[11] == 'i' && s[12] == 's' && s[13] == 't' && s[14] == 's') return TOKEN_KITTY_FILE_EXISTS;
+    if (len == 14 && s[0] == 'K' && s[1] == 'i' && s[2] == 't' && s[3] == 't' && s[4] == 'y' && s[5] == 'L' && s[6] == 'i' && s[7] == 's' && s[8] == 't' && s[9] == 'F' && s[10] == 'i' && s[11] == 'l' && s[12] == 'e' && s[13] == 's') return TOKEN_KITTY_LIST_FILES;
+    if (len == 15 && s[0] == 'K' && s[1] == 'i' && s[2] == 't' && s[3] == 't' && s[4] == 'y' && s[5] == 'R' && s[6] == 'e' && s[7] == 'm' && s[8] == 'o' && s[9] == 'v' && s[10] == 'e' && s[11] == 'F' && s[12] == 'i' && s[13] == 'l' && s[14] == 'e') return TOKEN_KITTY_REMOVE_FILE;
+    if (len == 12 && s[0] == 'K' && s[1] == 'i' && s[2] == 't' && s[3] == 't' && s[4] == 'y' && s[5] == 'R' && s[6] == 'e' && s[7] == 'a' && s[8] == 'd' && s[9] == 'D' && s[10] == 'i' && s[11] == 'r') return TOKEN_KITTY_READ_DIR;
+    if (len == 9 && s[0] == 'K' && s[1] == 'i' && s[2] == 't' && s[3] == 't' && s[4] == 'y' && s[5] == 'P' && s[6] == 'o' && s[7] == 'r' && s[8] == 't') return TOKEN_KITTY_PORT;
+    if (len == 8 && s[0] == 'G' && s[1] == 'e' && s[2] == 't' && s[3] == 'E' && s[4] == 'r' && s[5] == 'r' && s[6] == 'o' && s[7] == 'r') return TOKEN_GET_ERROR;
+    if (len == 16 && s[0] == 'K' && s[1] == 'i' && s[2] == 't' && s[3] == 't' && s[4] == 'y' && s[5] == 'S' && s[6] == 'p' && s[7] == 'l' && s[8] == 'i' && s[9] == 't' && s[10] == 'S' && s[11] == 't' && s[12] == 'r' && s[13] == 'i' && s[14] == 'n' && s[15] == 'g') return TOKEN_STRING_SPLIT;
+    if (len == 27 && s[0] == 'K' && s[1] == 'i' && s[2] == 't' && s[3] == 't' && s[4] == 'y' && s[5] == 'C' && s[6] == 'h' && s[7] == 'e' && s[8] == 'c' && s[9] == 'k' && s[10] == 'I' && s[11] == 'f' && s[12] == 'S' && s[13] == 't' && s[14] == 'r' && s[15] == 'i' && s[16] == 'n' && s[17] == 'g' && s[18] == 'C' && s[19] == 'o' && s[20] == 'n' && s[21] == 't' && s[22] == 'a' && s[23] == 'i' && s[24] == 'n' && s[25] == 's') return TOKEN_STRING_CONTAINS;
+    if (len == 19 && s[0] == 'K' && s[1] == 'i' && s[2] == 't' && s[3] == 't' && s[4] == 'y' && s[5] == 'R' && s[6] == 'e' && s[7] == 'p' && s[8] == 'l' && s[9] == 'a' && s[10] == 'c' && s[11] == 'e' && s[12] == 'S' && s[13] == 't' && s[14] == 'r' && s[15] == 'i' && s[16] == 'n' && s[17] == 'g') return TOKEN_STRING_REPLACE;
+    if (len == 4 && s[0] == 'T' && s[1] == 'r' && s[2] == 'i' && s[3] == 'm') return TOKEN_TRIM;
+    if (len == 3 && s[0] == 'L' && s[1] == 'e' && s[2] == 'n') return TOKEN_LEN;
+
     return TOKEN_IDENTIFIER;
 }
 
