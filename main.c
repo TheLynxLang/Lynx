@@ -172,3 +172,127 @@ int main(int argc, char* argv[]) {
                 setVarString("__project_name", argv[2]);
             } else {
                 setVarString("__project_name", "my_project");
+            }
+            if (argc >= 4) {
+                setVarString("__author", argv[3]);
+            } else {
+                setVarString("__author", "Anonymous");
+            }
+            runFile("scripts/init.lnx", 0, NULL);
+            return 0;
+        } else if (STRICMP(argv[1], "add") == 0) {
+            if (argc >= 3) {
+                setVarString("__pkg", argv[2]);
+                runFile("scripts/add.lnx", 0, NULL);
+            } else {
+                setErrorF("Usage: lynx add <package>");
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
+            }
+            return 0;
+        } else if (STRICMP(argv[1], "install") == 0) {
+            runFile("scripts/install.lnx", 0, NULL);
+            return 0;
+        } else if (STRICMP(argv[1], "remove") == 0) {
+            if (argc >= 3) {
+                setVarString("__pkg", argv[2]);
+                runFile("scripts/remove.lnx", 0, NULL);
+            } else {
+                setErrorF("Usage: lynx remove <package>");
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
+            }
+            return 0;
+        } else if (STRICMP(argv[1], "search") == 0) {
+            if (argc >= 3) {
+                setVarString("__term", argv[2]);
+                runFile("scripts/search.lnx", 0, NULL);
+            } else {
+                setErrorF("Usage: lynx search <term>");
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
+            }
+            return 0;
+        } else if (STRICMP(argv[1], "update") == 0) {
+            runFile("scripts/update.lnx", 0, NULL);
+            return 0;
+        } else if (STRICMP(argv[1], "publish") == 0) {
+            runFile("scripts/publish.lnx", 0, NULL);
+            return 0;
+        } else if (STRICMP(argv[1], "build") == 0) {
+            runFile("src/main.lnx", 0, NULL);
+            return 0;
+        } else if (STRICMP(argv[1], "fmt") == 0) {
+            if (argc >= 3) {
+                format_file(argv[2]);
+            } else {
+                setErrorF("Usage: lynx fmt <file.lnx>");
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
+            }
+            return 0;
+        } else if (STRICMP(argv[1], "check") == 0) {
+            if (argc >= 3) {
+                check_file(argv[2]);
+            } else {
+                setErrorF("Usage: lynx check <file.lnx>");
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
+            }
+            return 0;
+        } else {
+            char scriptPath[256];
+            snprintf(scriptPath, sizeof(scriptPath), "scripts/%s.lnx", argv[1]);
+            FILE* f = fopen(scriptPath, "r");
+            if (f) {
+                fclose(f);
+                runFile(scriptPath, 0, NULL);
+            } else {
+                FILE* test = fopen(argv[1], "r");
+                if (test) {
+                    fclose(test);
+                    runFile(argv[1], 0, NULL);
+                } else {
+                    setErrorF("Unknown command: %s", argv[1]);
+                    fprintf(stderr, "🐾 %s\n", lynx_error);
+                    fprintf(stderr, "   Run 'lynx help' for available commands\n");
+                    clearError();
+                }
+            }
+            return 0;
+        }
+
+        unload_all_libs();
+        cleanup_all();
+        return 0;
+    }
+
+    char line[1024];
+    printf("Lynx Engine %s | Type 'Help' for info\n", LYNX_VERSION);
+    while (1) {
+        printf("lynx > ");
+        if (!fgets(line, sizeof(line), stdin)) break;
+        line[strcspn(line, "\n")] = 0;
+        if (strlen(line) == 0) continue;
+
+        if (STRICMP(line, "help") == 0) {
+            show_help();
+        } else if (STRICMP(line, "exit") == 0) {
+            break;
+        } else if (strstr(line, ".lnx") != NULL) {
+            runFile(line, 0, NULL);
+        } else {
+            initScanner(line);
+            parse_statement();
+            if (lynx_error) {
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
+            }
+        }
+    }
+
+    unload_all_libs();
+    cleanup_all();
+    printf("🐾 Goodbye!\n");
+    return 0;
+}
