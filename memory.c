@@ -40,7 +40,7 @@ char* getError() {
 }
 
 // ─── VARIABLE MANAGEMENT ────────────────────────────────────────
-static Variable* findVar(const char* name) {
+Variable* findVar(const char* name) {
     for (int i = 0; i < varCount; i++) {
         if (strcmp(den[i].name, name) == 0) return &den[i];
     }
