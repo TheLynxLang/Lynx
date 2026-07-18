@@ -146,54 +146,44 @@ static LynxTokenType checkKeyword() {
     const char* s = scanner.start;
     int len = (int)(scanner.current - scanner.start);
 
-    // ─── TRY/CATCH MUST BE CHECKED FIRST ──────────────────────
-    if (strcmp(s, "Try") == 0) return TOKEN_TRY;
-    if (strcmp(s, "Catch") == 0) return TOKEN_CATCH;
-
-    // ─── OTHER KEYWORDS ──────────────────────────────────────
-    if (strcmp(s, "Set") == 0) return TOKEN_SET;
-    if (strcmp(s, "Roar") == 0) return TOKEN_ROAR;
-    if (strcmp(s, "Hunt") == 0) return TOKEN_HUNT;
-    if (strcmp(s, "Help") == 0) return TOKEN_HELP;
-    if (strcmp(s, "Stalk_Pack") == 0) return TOKEN_STALK_PACK;
-    if (strcmp(s, "Pounce") == 0) return TOKEN_POUNCE;
-    if (strcmp(s, "If") == 0) return TOKEN_IF;
-    if (strcmp(s, "Else") == 0) return TOKEN_ELSE;
-    if (strcmp(s, "LoadLib") == 0) return TOKEN_LOAD_LIB;
-    if (strcmp(s, "Func") == 0) return TOKEN_FUNC;
-    if (strcmp(s, "Return") == 0) return TOKEN_RETURN;
-    if (strcmp(s, "For") == 0) return TOKEN_FOR;
-    if (strcmp(s, "While") == 0) return TOKEN_WHILE;
-    if (strcmp(s, "Break") == 0) return TOKEN_BREAK;
-    if (strcmp(s, "Continue") == 0) return TOKEN_CONTINUE;
-    if (strcmp(s, "And") == 0) return TOKEN_AND;
-    if (strcmp(s, "Or") == 0) return TOKEN_OR;
-    if (strcmp(s, "Not") == 0) return TOKEN_NOT;
-    if (strcmp(s, "Run") == 0) return TOKEN_RUN;
-    if (strcmp(s, "Argv") == 0) return TOKEN_ARGV;
-    if (strcmp(s, "Export") == 0) return TOKEN_EXPORT;
-
-    // File I/O
-    if (strcmp(s, "KittyWriteFile") == 0) return TOKEN_KITTY_WRITE_FILE;
-    if (strcmp(s, "KittyReadFile") == 0) return TOKEN_KITTY_READ_FILE;
-    if (strcmp(s, "Paw") == 0) return TOKEN_PAW;
-    if (strcmp(s, "KittyFileExists") == 0) return TOKEN_KITTY_FILE_EXISTS;
-    if (strcmp(s, "KittyListFiles") == 0) return TOKEN_KITTY_LIST_FILES;
-    if (strcmp(s, "KittyRemoveFile") == 0) return TOKEN_KITTY_REMOVE_FILE;
-    if (strcmp(s, "KittyReadDir") == 0) return TOKEN_KITTY_READ_DIR;
-
-    // Package manager
-    if (strcmp(s, "KittyPort") == 0) return TOKEN_KITTY_PORT;
-
-    // Error
-    if (strcmp(s, "GetError") == 0) return TOKEN_GET_ERROR;
-
-    // String functions
-    if (strcmp(s, "KittySplitString") == 0) return TOKEN_STRING_SPLIT;
-    if (strcmp(s, "KittyCheckIfStringContains") == 0) return TOKEN_STRING_CONTAINS;
-    if (strcmp(s, "KittyReplaceString") == 0) return TOKEN_STRING_REPLACE;
-    if (strcmp(s, "Trim") == 0) return TOKEN_TRIM;
-    if (strcmp(s, "Len") == 0) return TOKEN_LEN;
+    // ─── ALL KEYWORDS WITH LEN CHECKS ──────────────────────────
+    if (len == 3 && strcmp(s, "Try") == 0) return TOKEN_TRY;
+    if (len == 5 && strcmp(s, "Catch") == 0) return TOKEN_CATCH;
+    if (len == 3 && strcmp(s, "Set") == 0) return TOKEN_SET;
+    if (len == 4 && strcmp(s, "Roar") == 0) return TOKEN_ROAR;
+    if (len == 4 && strcmp(s, "Hunt") == 0) return TOKEN_HUNT;
+    if (len == 4 && strcmp(s, "Help") == 0) return TOKEN_HELP;
+    if (len == 10 && strcmp(s, "Stalk_Pack") == 0) return TOKEN_STALK_PACK;
+    if (len == 6 && strcmp(s, "Pounce") == 0) return TOKEN_POUNCE;
+    if (len == 2 && strcmp(s, "If") == 0) return TOKEN_IF;
+    if (len == 4 && strcmp(s, "Else") == 0) return TOKEN_ELSE;
+    if (len == 7 && strcmp(s, "LoadLib") == 0) return TOKEN_LOAD_LIB;
+    if (len == 4 && strcmp(s, "Func") == 0) return TOKEN_FUNC;
+    if (len == 6 && strcmp(s, "Return") == 0) return TOKEN_RETURN;
+    if (len == 3 && strcmp(s, "For") == 0) return TOKEN_FOR;
+    if (len == 5 && strcmp(s, "While") == 0) return TOKEN_WHILE;
+    if (len == 5 && strcmp(s, "Break") == 0) return TOKEN_BREAK;
+    if (len == 8 && strcmp(s, "Continue") == 0) return TOKEN_CONTINUE;
+    if (len == 3 && strcmp(s, "And") == 0) return TOKEN_AND;
+    if (len == 2 && strcmp(s, "Or") == 0) return TOKEN_OR;
+    if (len == 3 && strcmp(s, "Not") == 0) return TOKEN_NOT;
+    if (len == 3 && strcmp(s, "Run") == 0) return TOKEN_RUN;
+    if (len == 4 && strcmp(s, "Argv") == 0) return TOKEN_ARGV;
+    if (len == 6 && strcmp(s, "Export") == 0) return TOKEN_EXPORT;
+    if (len == 14 && strcmp(s, "KittyWriteFile") == 0) return TOKEN_KITTY_WRITE_FILE;
+    if (len == 13 && strcmp(s, "KittyReadFile") == 0) return TOKEN_KITTY_READ_FILE;
+    if (len == 3 && strcmp(s, "Paw") == 0) return TOKEN_PAW;
+    if (len == 15 && strcmp(s, "KittyFileExists") == 0) return TOKEN_KITTY_FILE_EXISTS;
+    if (len == 14 && strcmp(s, "KittyListFiles") == 0) return TOKEN_KITTY_LIST_FILES;
+    if (len == 15 && strcmp(s, "KittyRemoveFile") == 0) return TOKEN_KITTY_REMOVE_FILE;
+    if (len == 12 && strcmp(s, "KittyReadDir") == 0) return TOKEN_KITTY_READ_DIR;
+    if (len == 9 && strcmp(s, "KittyPort") == 0) return TOKEN_KITTY_PORT;
+    if (len == 8 && strcmp(s, "GetError") == 0) return TOKEN_GET_ERROR;
+    if (len == 15 && strcmp(s, "KittySplitString") == 0) return TOKEN_STRING_SPLIT;
+    if (len == 24 && strcmp(s, "KittyCheckIfStringContains") == 0) return TOKEN_STRING_CONTAINS;
+    if (len == 20 && strcmp(s, "KittyReplaceString") == 0) return TOKEN_STRING_REPLACE;
+    if (len == 4 && strcmp(s, "Trim") == 0) return TOKEN_TRIM;
+    if (len == 3 && strcmp(s, "Len") == 0) return TOKEN_LEN;
 
     return TOKEN_IDENTIFIER;
 }
