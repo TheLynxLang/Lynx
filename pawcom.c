@@ -82,6 +82,25 @@ static char** split_string(const char* str, const char* delim, int* count) {
     return result;
 }
 
+// Helper: Get string from token (string literal or variable)
+static char* getStringFromToken(Token tok, char* buffer, size_t bufferSize) {
+    if (tok.type == TOKEN_STRING) {
+        snprintf(buffer, bufferSize, "%.*s", tok.length - 2, tok.start + 1);
+        return buffer;
+    } else if (tok.type == TOKEN_IDENTIFIER) {
+        char name[64];
+        snprintf(name, tok.length + 1, "%s", tok.start);
+        char* val = getVarString(name);
+        if (val && strlen(val) > 0) {
+            snprintf(buffer, bufferSize, "%s", val);
+            return buffer;
+        } else {
+            return NULL;
+        }
+    }
+    return NULL;
+}
+
 static void parse_array() {
     Token nameToken = scanToken();
     if (nameToken.type != TOKEN_IDENTIFIER) {
@@ -275,19 +294,15 @@ static char* build_string_from_tokens() {
             snprintf(numStr, sizeof(numStr), "%.5f", atof(tok.start));
             strncat(result, numStr, sizeof(result) - strlen(result) - 1);
         } else {
-            // If it's not a value and not '+', we're done
             if (tok.type != TOKEN_PLUS) {
-                // Put it back? We consumed it. Just break.
                 break;
             }
-            // It's '+', continue to next token
             continue;
         }
         
-        // Check if next token is '+'
         Token next = peekToken();
         if (next.type == TOKEN_PLUS) {
-            scanToken(); // consume '+'
+            scanToken();
             continue;
         } else {
             break;
@@ -295,6 +310,25 @@ static char* build_string_from_tokens() {
     }
     
     return result;
+}
+
+// Helper: Get path string from token (supports string literals and variables)
+static char* getPathFromToken(Token tok, char* buffer, size_t bufferSize) {
+    if (tok.type == TOKEN_STRING) {
+        snprintf(buffer, bufferSize, "%.*s", tok.length - 2, tok.start + 1);
+        return buffer;
+    } else if (tok.type == TOKEN_IDENTIFIER) {
+        char name[64];
+        snprintf(name, tok.length + 1, "%s", tok.start);
+        char* val = getVarString(name);
+        if (val && strlen(val) > 0) {
+            snprintf(buffer, bufferSize, "%s", val);
+            return buffer;
+        } else {
+            return NULL;
+        }
+    }
+    return NULL;
 }
 
 int pawcom_parse_statement(Token t) {
@@ -398,7 +432,6 @@ int pawcom_parse_statement(Token t) {
             return 1;
         }
 
-        // Check if we're building a string (first token is string or identifier)
         Token first = peekToken();
         if (first.type == TOKEN_STRING || first.type == TOKEN_IDENTIFIER) {
             char result[4096] = "";
@@ -416,8 +449,6 @@ int pawcom_parse_statement(Token t) {
                     char* val = getVarString(name);
                     if (val && strlen(val) > 0) {
                         strncat(result, val, sizeof(result) - strlen(result) - 1);
-                    } else {
-                        // If variable doesn't exist or is empty, treat as empty string
                     }
                 } else if (tok.type == TOKEN_NUMBER) {
                     char numStr[32];
@@ -445,7 +476,6 @@ int pawcom_parse_statement(Token t) {
             
             setVarString(varName, result);
         } else {
-            // Numeric expression
             double val = parse_expression();
             if (lynx_error) {
                 printf("%s\n", lynx_error);
@@ -530,39 +560,96 @@ int pawcom_parse_statement(Token t) {
         return 1;
     }
 
+    // ─── KITTY_WRITE_FILE ──────────────────────────────────────
     if (t.type == TOKEN_KITTY_WRITE_FILE) {
-        Token path = scanToken();
-        Token content = scanToken();
-        if (path.type == TOKEN_STRING && content.type == TOKEN_STRING) {
-            char p[256], c[4096];
-            snprintf(p, path.length - 1, "%s", path.start + 1);
-            snprintf(c, content.length - 1, "%s", content.start + 1);
-            FILE* f = fopen(p, "w");
+        Token pathToken = scanToken();
+        Token contentToken = scanToken();
+        
+        char path[4096];
+        char content[4096];
+        char* pathStr = NULL;
+        char* contentStr = NULL;
+        
+        if (pathToken.type == TOKEN_STRING) {
+            snprintf(path, pathToken.length - 1, "%s", pathToken.start + 1);
+            pathStr = path;
+        } else if (pathToken.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, pathToken.length + 1, "%s", pathToken.start);
+            char* val = getVarString(name);
+            if (val && strlen(val) > 0) {
+                snprintf(path, sizeof(path), "%s", val);
+                pathStr = path;
+            }
+        }
+        
+        if (contentToken.type == TOKEN_STRING) {
+            snprintf(content, contentToken.length - 1, "%s", contentToken.start + 1);
+            contentStr = content;
+        } else if (contentToken.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, contentToken.length + 1, "%s", contentToken.start);
+            char* val = getVarString(name);
+            if (val && strlen(val) > 0) {
+                snprintf(content, sizeof(content), "%s", val);
+                contentStr = content;
+            }
+        }
+        
+        if (pathStr && contentStr) {
+            FILE* f = fopen(pathStr, "w");
             if (f) { 
-                fwrite(c, 1, strlen(c), f); 
+                fwrite(contentStr, 1, strlen(contentStr), f); 
                 fclose(f); 
             } else {
-                setErrorF("KittyWriteFile: Could not open '%s' for writing", p);
+                setErrorF("KittyWriteFile: Could not open '%s' for writing", pathStr);
                 printf("%s\n", lynx_error);
                 clearError();
             }
         } else {
-            char* text1 = getTokenText(path);
-            char* text2 = getTokenText(content);
+            char* text1 = getTokenText(pathToken);
+            char* text2 = getTokenText(contentToken);
             setErrorF("KittyWriteFile expects two strings (path, content), got '%s' (type: %s) and '%s' (type: %s)",
-                      text1, tokenTypeToString(path.type), text2, tokenTypeToString(content.type));
+                      text1, tokenTypeToString(pathToken.type), text2, tokenTypeToString(contentToken.type));
             printf("%s\n", lynx_error);
             clearError();
         }
         return 1;
     }
 
+    // ─── KITTY_READ_FILE ──────────────────────────────────────
     if (t.type == TOKEN_KITTY_READ_FILE) {
-        Token path = scanToken();
-        if (path.type == TOKEN_STRING) {
-            char p[256];
-            snprintf(p, path.length - 1, "%s", path.start + 1);
-            FILE* f = fopen(p, "r");
+        Token pathToken = scanToken();
+        char p[4096];
+        char* pathStr = NULL;
+        
+        if (pathToken.type == TOKEN_STRING) {
+            snprintf(p, pathToken.length - 1, "%s", pathToken.start + 1);
+            pathStr = p;
+        } else if (pathToken.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, pathToken.length + 1, "%s", pathToken.start);
+            char* val = getVarString(name);
+            if (val && strlen(val) > 0) {
+                snprintf(p, sizeof(p), "%s", val);
+                pathStr = p;
+            } else {
+                setErrorF("KittyReadFile: variable '%s' is not a string or is empty", name);
+                printf("%s\n", lynx_error);
+                clearError();
+                return 1;
+            }
+        } else {
+            char* text = getTokenText(pathToken);
+            setErrorF("KittyReadFile expects a string path, got '%s' (type: %s)",
+                      text, tokenTypeToString(pathToken.type));
+            printf("%s\n", lynx_error);
+            clearError();
+            return 1;
+        }
+        
+        if (pathStr) {
+            FILE* f = fopen(pathStr, "r");
             if (f) {
                 fseek(f, 0, SEEK_END);
                 long size = ftell(f);
@@ -575,82 +662,138 @@ int pawcom_parse_statement(Token t) {
                 printf("%s\n", buf);
                 free(buf);
             } else {
-                setErrorF("KittyReadFile: File '%s' not found", p);
+                setErrorF("KittyReadFile: File '%s' not found", pathStr);
                 printf("%s\n", lynx_error);
                 clearError();
             }
-        } else {
-            char* text = getTokenText(path);
-            setErrorF("KittyReadFile expects a string path, got '%s' (type: %s)",
-                      text, tokenTypeToString(path.type));
-            printf("%s\n", lynx_error);
-            clearError();
         }
         return 1;
     }
 
+    // ─── PAW ──────────────────────────────────────────────────
     if (t.type == TOKEN_PAW) {
-        Token path = scanToken();
-        if (path.type == TOKEN_STRING) {
-            char p[256];
-            snprintf(p, path.length - 1, "%s", path.start + 1);
+        Token pathToken = scanToken();
+        char p[4096];
+        char* pathStr = NULL;
+        
+        if (pathToken.type == TOKEN_STRING) {
+            snprintf(p, pathToken.length - 1, "%s", pathToken.start + 1);
+            pathStr = p;
+        } else if (pathToken.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, pathToken.length + 1, "%s", pathToken.start);
+            char* val = getVarString(name);
+            if (val && strlen(val) > 0) {
+                snprintf(p, sizeof(p), "%s", val);
+                pathStr = p;
+            } else {
+                setErrorF("Paw: variable '%s' is not a string or is empty", name);
+                printf("%s\n", lynx_error);
+                clearError();
+                return 1;
+            }
+        } else {
+            char* text = getTokenText(pathToken);
+            setErrorF("Paw expects a string path, got '%s' (type: %s)",
+                      text, tokenTypeToString(pathToken.type));
+            printf("%s\n", lynx_error);
+            clearError();
+            return 1;
+        }
+        
+        if (pathStr) {
             #ifdef _WIN32
-                if (_mkdir(p) != 0 && errno != EEXIST) {
-                    setErrorF("Paw: Could not create directory '%s'", p);
+                if (_mkdir(pathStr) != 0 && errno != EEXIST) {
+                    setErrorF("Paw: Could not create directory '%s'", pathStr);
                     printf("%s\n", lynx_error);
                     clearError();
                 }
             #else
-                if (mkdir(p, 0777) != 0 && errno != EEXIST) {
-                    setErrorF("Paw: Could not create directory '%s'", p);
+                if (mkdir(pathStr, 0777) != 0 && errno != EEXIST) {
+                    setErrorF("Paw: Could not create directory '%s'", pathStr);
                     printf("%s\n", lynx_error);
                     clearError();
                 }
             #endif
-        } else {
-            char* text = getTokenText(path);
-            setErrorF("Paw expects a string path, got '%s' (type: %s)",
-                      text, tokenTypeToString(path.type));
-            printf("%s\n", lynx_error);
-            clearError();
         }
         return 1;
     }
 
+    // ─── KITTY_FILE_EXISTS ──────────────────────────────────
     if (t.type == TOKEN_KITTY_FILE_EXISTS) {
-        Token path = scanToken();
-        if (path.type == TOKEN_STRING) {
-            char p[256];
-            snprintf(p, path.length - 1, "%s", path.start + 1);
-            FILE* f = fopen(p, "r");
-            setVar("__result", f ? 1.0 : 0.0);
-            if (f) fclose(f);
+        Token pathToken = scanToken();
+        char p[4096];
+        char* pathStr = NULL;
+        
+        if (pathToken.type == TOKEN_STRING) {
+            snprintf(p, pathToken.length - 1, "%s", pathToken.start + 1);
+            pathStr = p;
+        } else if (pathToken.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, pathToken.length + 1, "%s", pathToken.start);
+            char* val = getVarString(name);
+            if (val && strlen(val) > 0) {
+                snprintf(p, sizeof(p), "%s", val);
+                pathStr = p;
+            } else {
+                setErrorF("KittyFileExists: variable '%s' is not a string or is empty", name);
+                printf("%s\n", lynx_error);
+                clearError();
+                return 1;
+            }
         } else {
-            char* text = getTokenText(path);
+            char* text = getTokenText(pathToken);
             setErrorF("KittyFileExists expects a string path, got '%s' (type: %s)",
-                      text, tokenTypeToString(path.type));
+                      text, tokenTypeToString(pathToken.type));
             printf("%s\n", lynx_error);
             clearError();
+            return 1;
+        }
+        
+        if (pathStr) {
+            FILE* f = fopen(pathStr, "r");
+            setVar("__result", f ? 1.0 : 0.0);
+            if (f) fclose(f);
         }
         return 1;
     }
 
     if (t.type == TOKEN_KITTY_REMOVE_FILE) {
-        Token path = scanToken();
-        if (path.type == TOKEN_STRING) {
-            char p[256];
-            snprintf(p, path.length - 1, "%s", path.start + 1);
-            if (remove(p) != 0) {
-                setErrorF("KittyRemoveFile: Could not remove '%s'", p);
+        Token pathToken = scanToken();
+        char p[4096];
+        char* pathStr = NULL;
+        
+        if (pathToken.type == TOKEN_STRING) {
+            snprintf(p, pathToken.length - 1, "%s", pathToken.start + 1);
+            pathStr = p;
+        } else if (pathToken.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, pathToken.length + 1, "%s", pathToken.start);
+            char* val = getVarString(name);
+            if (val && strlen(val) > 0) {
+                snprintf(p, sizeof(p), "%s", val);
+                pathStr = p;
+            } else {
+                setErrorF("KittyRemoveFile: variable '%s' is not a string or is empty", name);
+                printf("%s\n", lynx_error);
+                clearError();
+                return 1;
+            }
+        } else {
+            char* text = getTokenText(pathToken);
+            setErrorF("KittyRemoveFile expects a string path, got '%s' (type: %s)",
+                      text, tokenTypeToString(pathToken.type));
+            printf("%s\n", lynx_error);
+            clearError();
+            return 1;
+        }
+        
+        if (pathStr) {
+            if (remove(pathStr) != 0) {
+                setErrorF("KittyRemoveFile: Could not remove '%s'", pathStr);
                 printf("%s\n", lynx_error);
                 clearError();
             }
-        } else {
-            char* text = getTokenText(path);
-            setErrorF("KittyRemoveFile expects a string path, got '%s' (type: %s)",
-                      text, tokenTypeToString(path.type));
-            printf("%s\n", lynx_error);
-            clearError();
         }
         return 1;
     }
