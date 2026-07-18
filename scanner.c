@@ -216,13 +216,30 @@ Token peekToken() {
     return token;
 }
 
-Token scanToken() {
-    while (isspace(peek())) {
-        if (advance() == '\n') {
+static void skip_whitespace() {
+    while (!isAtEnd()) {
+        char c = peek();
+        if (c == '\n') {
             scanner.line++;
             scanner.col = 1;
+            advance();
+        } else if (c == '\r') {
+            advance();
+            if (peek() == '\n') {
+                scanner.line++;
+                scanner.col = 1;
+                advance();
+            }
+        } else if (isspace(c)) {
+            advance();
+        } else {
+            break;
         }
     }
+}
+
+Token scanToken() {
+    skip_whitespace();
 
     if (peek() == '#') {
         while (peek() != '\n' && !isAtEnd()) advance();
