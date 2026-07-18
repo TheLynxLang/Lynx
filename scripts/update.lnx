@@ -15,7 +15,7 @@ Set in_deps = 0
 Set new_toml = ""
 Set updated = 0
 
-For i = 0 To __result - 1 {
+For i = 0 To __result_count - 1 {
     Set line = __result[i]
     
     If KittyCheckIfStringContains(line, "[dependencies]") {
@@ -44,7 +44,7 @@ For i = 0 To __result - 1 {
             Set jsonLines = KittySplitString(json, "\n")
             Set new_version = ""
             
-            For j = 0 To __result - 1 {
+            For j = 0 To __result_count - 1 {
                 Set jline = __result[j]
                 If KittyCheckIfStringContains(jline, "\"" + pkg + "\"") {
                     For k = j To j + 10 {
