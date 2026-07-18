@@ -89,6 +89,11 @@ void setVar(const char* name, double val) {
 }
 
 void setVarString(const char* name, const char* value) {
+    if (!value) {
+        printf("🐾 ERROR: setVarString called with NULL value for '%s'\n", name);
+        return;
+    }
+    
     Variable* v = findVar(name);
     if (v) {
         if (v->type == VAR_ARRAY) {
@@ -113,11 +118,13 @@ void setVarString(const char* name, const char* value) {
         v->value.strValue = malloc(strlen(value) + 1);
         if (v->value.strValue) {
             strcpy(v->value.strValue, value);
+            printf("🐾 DEBUG: Updated string var '%s' = '%s' (strlen=%zu)\n", name, value, strlen(value));
+        } else {
+            printf("🐾 ERROR: malloc failed for '%s'\n", name);
         }
         v->array_length = 0;
         v->array_capacity = 0;
         v->value.array = NULL;
-        printf("🐾 DEBUG: Updated string var '%s' = '%s'\n", name, value);
         return;
     }
     
@@ -127,12 +134,15 @@ void setVarString(const char* name, const char* value) {
         den[varCount].value.strValue = malloc(strlen(value) + 1);
         if (den[varCount].value.strValue) {
             strcpy(den[varCount].value.strValue, value);
+            printf("🐾 DEBUG: Created string var '%s' = '%s' (varCount=%d, strlen=%zu)\n", name, value, varCount + 1, strlen(value));
+        } else {
+            printf("🐾 ERROR: malloc failed for '%s'\n", name);
+            den[varCount].value.strValue = NULL;
         }
         den[varCount].value.array = NULL;
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
         varCount++;
-        printf("🐾 DEBUG: Created string var '%s' = '%s' (varCount=%d)\n", name, value, varCount);
     } else {
         printf("🐾 ERROR: varCount (%d) >= MAX_VARS (%d)\n", varCount, MAX_VARS);
     }
