@@ -79,6 +79,48 @@ void setErrorF(const char* format, ...) {
 double parse_primary() {
     Token t = scanToken();
     if (t.type == TOKEN_NUMBER) return atof(t.start);
+    
+    // ─── HANDLE LEN() ──────────────────────────────────────────
+    if (t.type == TOKEN_LEN) {
+        Token lparen = scanToken();
+        if (lparen.type != TOKEN_LPAREN) {
+            setErrorF("Len expects '('", lparen.line, lparen.col);
+            return 0;
+        }
+        
+        Token arg = scanToken();
+        if (arg.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, arg.length + 1, "%s", arg.start);
+            char* str = getVarString(name);
+            double result = (double)strlen(str);
+            setVar("__result", result);
+            
+            Token rparen = scanToken();
+            if (rparen.type != TOKEN_RPAREN) {
+                setErrorF("Len expects ')'", rparen.line, rparen.col);
+                return 0;
+            }
+            return result;
+        } else if (arg.type == TOKEN_STRING) {
+            char str[4096];
+            snprintf(str, arg.length - 1, "%s", arg.start + 1);
+            double result = (double)strlen(str);
+            setVar("__result", result);
+            
+            Token rparen = scanToken();
+            if (rparen.type != TOKEN_RPAREN) {
+                setErrorF("Len expects ')'", rparen.line, rparen.col);
+                return 0;
+            }
+            return result;
+        } else {
+            setErrorF("Len expects a string or variable name", arg.line, arg.col);
+            return 0;
+        }
+    }
+    // ──────────────────────────────────────────────────────────
+    
     if (t.type == TOKEN_IDENTIFIER) {
         char name[64];
         snprintf(name, t.length + 1, "%s", t.start);
@@ -508,6 +550,14 @@ void parse_statement() {
     if (t.type == TOKEN_FOR) { parse_for_loop(); return; }
     if (t.type == TOKEN_WHILE) { parse_while_loop(); return; }
     if (t.type == TOKEN_FUNC) { parse_function_def(); return; }
+    
+    // ─── ADD THIS ──────────────────────────────────────────────
+    if (t.type == TOKEN_TRY) {
+        extern void parse_try_catch(void);
+        parse_try_catch();
+        return;
+    }
+    // ──────────────────────────────────────────────────────────
 
     extern int pawcom_parse_statement(Token t);
     if (pawcom_parse_statement(t)) {
