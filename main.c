@@ -175,10 +175,19 @@ int main(int argc, char* argv[]) {
             return 0;
         } else if (STRICMP(argv[1], "add") == 0) {
             if (argc >= 3) {
+                printf("🐾 DEBUG: Setting __pkg to '%s'\n", argv[2]);
                 setVarString("__pkg", argv[2]);
-                // DEBUG: verify the variable is set
+                
                 char* test = getVarString("__pkg");
-                printf("🐾 DEBUG: __pkg set to '%s'\n", test ? test : "(null)");
+                printf("🐾 DEBUG: After setVarString, getVarString returned '%s'\n", test ? test : "(null)");
+                
+                printf("🐾 DEBUG: varCount = %d\n", varCount);
+                for (int i = 0; i < varCount; i++) {
+                    if (den[i].type == VAR_STRING) {
+                        printf("   den[%d].name='%s' val='%s'\n", i, den[i].name, den[i].value.strValue);
+                    }
+                }
+                
                 runFile("scripts/add.lnx", 0, NULL);
             } else {
                 setErrorF("Usage: lynx add <package>");
@@ -191,6 +200,7 @@ int main(int argc, char* argv[]) {
             return 0;
         } else if (STRICMP(argv[1], "remove") == 0) {
             if (argc >= 3) {
+                printf("🐾 DEBUG: Setting __pkg to '%s'\n", argv[2]);
                 setVarString("__pkg", argv[2]);
                 runFile("scripts/remove.lnx", 0, NULL);
             } else {
