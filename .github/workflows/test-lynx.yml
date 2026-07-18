@@ -1,4 +1,4 @@
-name: Build, Install, and Test Lynx
+name: Build, Install, and Test Lynx (Debug Mode)
 
 on:
   push:
@@ -22,10 +22,11 @@ jobs:
             choco install mingw -y
           }
 
-      - name: Build Lynx
+      - name: Build Lynx with Debug Symbols
         run: |
-          gcc main.c scanner.c parser.c memory.c pawcom.c libloader.c -o lynx.exe -lurlmon -luser32
+          gcc -g -O0 -Wall -Wextra -Wpedantic main.c scanner.c parser.c memory.c pawcom.c libloader.c -o lynx.exe -lurlmon -luser32 -lm
           if ($LASTEXITCODE -ne 0) { exit 1 }
+          echo "✅ Build successful"
 
       - name: Prepare installer files
         run: |
@@ -45,19 +46,30 @@ jobs:
           if (!$installer) { exit 1 }
           Start-Process -FilePath $installer.FullName -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
 
-      - name: Test Lynx commands
+      - name: Test Lynx commands (with debug output)
         run: |
           $lynx = "C:\Program Files\Lynx\lynx.exe"
+          Write-Host "=== VERSION ===" -ForegroundColor Cyan
           & $lynx --version
+          Write-Host "=== HELP ===" -ForegroundColor Cyan
           & $lynx help
+          Write-Host "=== INIT ===" -ForegroundColor Cyan
           & $lynx init
+          Write-Host "=== ADD ===" -ForegroundColor Cyan
           & $lynx add meowsys
+          Write-Host "=== INSTALL ===" -ForegroundColor Cyan
           & $lynx install
-          & $lynx build
+          Write-Host "=== BUILD ===" -ForegroundColor Cyan
+          & $lynx build 2>&1 | Out-String | Write-Host
+          Write-Host "=== SEARCH ===" -ForegroundColor Cyan
           & $lynx search meowsys
+          Write-Host "=== UPDATE ===" -ForegroundColor Cyan
           & $lynx update
+          Write-Host "=== REMOVE ===" -ForegroundColor Cyan
           & $lynx remove meowsys
+          Write-Host "=== FMT ===" -ForegroundColor Cyan
           & $lynx fmt src/main.lnx
+          Write-Host "=== CHECK ===" -ForegroundColor Cyan
           & $lynx check src/main.lnx
 
       - name: Upload installer
@@ -76,12 +88,13 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential gcc make
+          sudo apt-get install -y build-essential gcc make valgrind gdb
 
-      - name: Build Lynx
+      - name: Build Lynx with Debug Symbols
         run: |
-          gcc main.c scanner.c parser.c memory.c pawcom.c libloader.c -o lynx -lX11 -ldl -lm
+          gcc -g -O0 -Wall -Wextra -Wpedantic main.c scanner.c parser.c memory.c pawcom.c libloader.c -o lynx -lX11 -ldl -lm
           if [ $? -ne 0 ]; then exit 1; fi
+          echo "✅ Build successful"
 
       - name: Prepare installer files (Linux)
         run: |
@@ -98,10 +111,10 @@ jobs:
           cp -r installer/files/scripts build-deb/usr/bin/ 2>/dev/null || true
           cat > build-deb/DEBIAN/control << EOF
           Package: lynx-lang
-          Version: 1.0.0
+          Version: 1.0.0-debug
           Maintainer: justdev-chris
           Architecture: amd64
-          Description: Lynx programming language
+          Description: Lynx programming language (debug build)
           EOF
           dpkg-deb --build build-deb lynx-lang.deb
 
@@ -118,19 +131,65 @@ jobs:
             exit 1
           fi
 
-      - name: Test Lynx commands (Linux)
+      - name: Enable core dumps
         run: |
+          ulimit -c unlimited
+          echo "core" | sudo tee /proc/sys/kernel/core_pattern
+          echo "✅ Core dumps enabled"
+
+      - name: Test Lynx commands (with debug output)
+        run: |
+          echo -e "\033[1;36m=== VERSION ===\033[0m"
           lynx --version
+          echo -e "\033[1;36m=== HELP ===\033[0m"
           lynx help
+          echo -e "\033[1;36m=== INIT ===\033[0m"
           lynx init
+          echo -e "\033[1;36m=== ADD ===\033[0m"
           lynx add meowsys
+          echo -e "\033[1;36m=== INSTALL ===\033[0m"
           lynx install
-          lynx build
+          echo -e "\033[1;36m=== BUILD (with GDB) ===\033[0m"
+          # Try normal run first
+          if ! lynx build 2>&1; then
+            echo -e "\033[1;31m❌ lynx build crashed! Running with GDB...\033[0m"
+            gdb -ex "run build" -ex "thread apply all bt" -ex "quit" ./lynx 2>&1 | tee gdb_output.txt || echo "GDB finished"
+            # Check for core dump
+            if ls core* 1> /dev/null 2>&1; then
+              echo -e "\033[1;33m📦 Core dump found, analyzing with GDB...\033[0m"
+              gdb ./lynx core -ex "bt full" -ex "info registers" -ex "quit" 2>&1 | tee gdb_core.txt
+            fi
+          fi
+          echo -e "\033[1;36m=== SEARCH ===\033[0m"
           lynx search meowsys
+          echo -e "\033[1;36m=== UPDATE ===\033[0m"
           lynx update
+          echo -e "\033[1;36m=== REMOVE ===\033[0m"
           lynx remove meowsys
+          echo -e "\033[1;36m=== FMT ===\033[0m"
           lynx fmt src/main.lnx
+          echo -e "\033[1;36m=== CHECK ===\033[0m"
           lynx check src/main.lnx
+
+      - name: Run Lynx build with Valgrind
+        if: always()
+        run: |
+          echo -e "\033[1;33m🧪 Running with Valgrind (memory debug)\033[0m"
+          valgrind --leak-check=full --track-origins=yes --show-leak-kinds=all --log-file=valgrind.log ./lynx build
+          cat valgrind.log
+
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lynx-debug-logs
+          path: |
+            valgrind.log
+            gdb_output.txt
+            gdb_core.txt
+            core*
+            *.log
+          if-no-files-found: warn
 
       - name: Upload .deb package
         if: always()
