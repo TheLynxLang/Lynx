@@ -176,6 +176,9 @@ int main(int argc, char* argv[]) {
         } else if (STRICMP(argv[1], "add") == 0) {
             if (argc >= 3) {
                 setVarString("__pkg", argv[2]);
+                // DEBUG: verify the variable is set
+                char* test = getVarString("__pkg");
+                printf("🐾 DEBUG: __pkg set to '%s'\n", test ? test : "(null)");
                 runFile("scripts/add.lnx", 0, NULL);
             } else {
                 setErrorF("Usage: lynx add <package>");
