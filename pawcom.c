@@ -133,7 +133,7 @@ static void parse_array() {
 }
 
 // ─── PARSE TRY / CATCH ────────────────────────────────────────
-static void parse_try_catch() {
+void parse_try_catch() {
     try_state.is_trying = 1;
     try_state.caught = 0;
     try_state.error_message = NULL;
