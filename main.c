@@ -133,6 +133,18 @@ int main(int argc, char* argv[]) {
                 clearError();
             }
         } else if (_stricmp(argv[1], "init") == 0) {
+            // Pass project name if provided
+            if (argc >= 3) {
+                setVarString("__project_name", argv[2]);
+            } else {
+                setVarString("__project_name", "");
+            }
+            // Pass author if provided
+            if (argc >= 4) {
+                setVarString("__author", argv[3]);
+            } else {
+                setVarString("__author", "");
+            }
             runFile("scripts/init.lnx", 0, NULL);
             return 0;
         } else if (_stricmp(argv[1], "add") == 0) {
