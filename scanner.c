@@ -145,12 +145,21 @@ char* getTokenText(Token t) {
 static LynxTokenType checkKeyword() {
     const char* s = scanner.start;
     int len = (int)(scanner.current - scanner.start);
+    
+    // ─── DEBUG: Print every identifier being checked ──────────
+    printf("DEBUG: checkKeyword called for '%.*s' (len=%d)\n", len, s, len);
+    printf("DEBUG: Hex bytes: ");
+    for (int i = 0; i < len; i++) {
+        printf("%02x ", (unsigned char)s[i]);
+    }
+    printf("\n");
+    // ──────────────────────────────────────────────────────────
 
     // ─── ALL KEYWORDS WITH LEN CHECKS ──────────────────────────
-    if (len == 3 && strcmp(s, "Try") == 0) return TOKEN_TRY;
-    if (len == 5 && strcmp(s, "Catch") == 0) return TOKEN_CATCH;
-    if (len == 3 && strcmp(s, "Set") == 0) return TOKEN_SET;
-    if (len == 4 && strcmp(s, "Roar") == 0) return TOKEN_ROAR;
+    if (len == 3 && strcmp(s, "Try") == 0) { printf("DEBUG: MATCHED Try!\n"); return TOKEN_TRY; }
+    if (len == 5 && strcmp(s, "Catch") == 0) { printf("DEBUG: MATCHED Catch!\n"); return TOKEN_CATCH; }
+    if (len == 3 && strcmp(s, "Set") == 0) { printf("DEBUG: MATCHED Set!\n"); return TOKEN_SET; }
+    if (len == 4 && strcmp(s, "Roar") == 0) { printf("DEBUG: MATCHED Roar!\n"); return TOKEN_ROAR; }
     if (len == 4 && strcmp(s, "Hunt") == 0) return TOKEN_HUNT;
     if (len == 4 && strcmp(s, "Help") == 0) return TOKEN_HELP;
     if (len == 10 && strcmp(s, "Stalk_Pack") == 0) return TOKEN_STALK_PACK;
@@ -185,6 +194,7 @@ static LynxTokenType checkKeyword() {
     if (len == 4 && strcmp(s, "Trim") == 0) return TOKEN_TRIM;
     if (len == 3 && strcmp(s, "Len") == 0) return TOKEN_LEN;
 
+    printf("DEBUG: NO MATCH - returning TOKEN_IDENTIFIER\n");
     return TOKEN_IDENTIFIER;
 }
 
