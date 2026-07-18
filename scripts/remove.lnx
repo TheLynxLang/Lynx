@@ -5,9 +5,10 @@ Set content = __file_content
 
 Set found = 0
 Set new_content = ""
-Set lines = KittySplitString(content, "\n")
+KittySplitString(content, "\n")
+Set lines_count = __result_count
 
-For i = 0 To __result_count - 1 {
+For i = 0 To lines_count - 1 {
     Set line = __result[i]
     If KittyCheckIfStringContains(line, __pkg + " = ") {
         Set found = 1
@@ -18,7 +19,7 @@ For i = 0 To __result_count - 1 {
 
 If found == 0 {
     Roar "⚠️ " + __pkg + " not found in dependencies"
-    Exit
+    Return
 }
 
 KittyWriteFile "lynx.toml" new_content
@@ -28,8 +29,9 @@ If __result == 1 {
     KittyReadFile "lynx.lock"
     Set lockContent = __file_content
     Set newLock = ""
-    Set lockLines = KittySplitString(lockContent, "\n")
-    For i = 0 To __result_count - 1 {
+    KittySplitString(lockContent, "\n")
+    Set lock_lines_count = __result_count
+    For i = 0 To lock_lines_count - 1 {
         Set line = __result[i]
         If KittyCheckIfStringContains(line, __pkg + " = ") {
             Continue
