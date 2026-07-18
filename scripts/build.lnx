@@ -9,11 +9,12 @@ Set lines_count = __result_count
 
 For i = 0 To lines_count - 1 {
     Set line = __result[i]
-    If KittyCheckIfStringContains(line, "name = ") {
+    KittyCheckIfStringContains(line, "name = ")
+    If __result == 1 {
         KittySplitString(line, "=")
         If __result_count >= 2 {
             Set project_name = Trim(__result[1])
-            Set project_name = KittyReplaceString(project_name, "\"", "")
+            project_name = KittyReplaceString(project_name, "\"", "")
         }
         Break
     }
