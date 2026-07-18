@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdarg.h>
+#include <setjmp.h>
 
 // ─── CONSTANTS ────────────────────────────────────────────────
 #define LYNX_MAX_PATH 4096
@@ -126,6 +127,16 @@ typedef struct {
     int col;
 } LynxError;
 
+// ─── TRY/CATCH STATE ──────────────────────────────────────────
+typedef struct {
+    jmp_buf env;              // Jump buffer for longjmp
+    int is_trying;            // Flag: currently in Try block
+    int caught;               // Flag: error was caught
+    char* error_message;      // The error that was thrown
+    int error_line;
+    int error_col;
+} TryState;
+
 // ─── GLOBALS ──────────────────────────────────────────────────
 extern Scanner scanner;
 extern char* lynx_error;
@@ -134,6 +145,7 @@ extern int loaded_pkg_count;
 extern Variable den[];
 extern int varCount;
 extern LynxError lynx_error_state;
+extern TryState try_state;
 
 // ─── FUNCTIONS ──────────────────────────────────────────────────
 void initScanner(const char* source);
@@ -143,6 +155,7 @@ Token peekToken();
 void parse_statement();
 void parse_block();
 double parse_expression();
+int parse_logic_expression();
 int check_condition();
 void runFile(const char* path, int argc, char** argv);
 
@@ -177,6 +190,6 @@ void check_file(const char* path);
 void cleanup_all();
 
 // ─── PAWCOM ──────────────────────────────────────────────────
-int pawcom_parse_statement(Token t);  // <-- ADD THIS
+int pawcom_parse_statement(Token t);
 
 #endif
