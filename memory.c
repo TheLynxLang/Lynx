@@ -94,6 +94,8 @@ void setVarString(const char* name, const char* value) {
         return;
     }
     
+    printf("🐾 DEBUG: setVarString: name='%s', value='%s'\n", name, value);
+    
     Variable* v = findVar(name);
     if (v) {
         if (v->type == VAR_ARRAY) {
@@ -118,9 +120,9 @@ void setVarString(const char* name, const char* value) {
         v->value.strValue = malloc(strlen(value) + 1);
         if (v->value.strValue) {
             strcpy(v->value.strValue, value);
-            printf("🐾 DEBUG: Updated string var '%s' = '%s' (strlen=%zu)\n", name, value, strlen(value));
+            printf("🐾 DEBUG: Updated var '%s' = '%s'\n", name, v->value.strValue);
         } else {
-            printf("🐾 ERROR: malloc failed for '%s'\n", name);
+            printf("🐾 ERROR: malloc failed\n");
         }
         v->array_length = 0;
         v->array_capacity = 0;
@@ -134,9 +136,9 @@ void setVarString(const char* name, const char* value) {
         den[varCount].value.strValue = malloc(strlen(value) + 1);
         if (den[varCount].value.strValue) {
             strcpy(den[varCount].value.strValue, value);
-            printf("🐾 DEBUG: Created string var '%s' = '%s' (varCount=%d, strlen=%zu)\n", name, value, varCount + 1, strlen(value));
+            printf("🐾 DEBUG: Created var '%s' = '%s' (varCount=%d)\n", name, den[varCount].value.strValue, varCount + 1);
         } else {
-            printf("🐾 ERROR: malloc failed for '%s'\n", name);
+            printf("🐾 ERROR: malloc failed\n");
             den[varCount].value.strValue = NULL;
         }
         den[varCount].value.array = NULL;
@@ -144,7 +146,7 @@ void setVarString(const char* name, const char* value) {
         den[varCount].array_capacity = 0;
         varCount++;
     } else {
-        printf("🐾 ERROR: varCount (%d) >= MAX_VARS (%d)\n", varCount, MAX_VARS);
+        printf("🐾 ERROR: varCount >= MAX_VARS\n");
     }
 }
 
@@ -159,18 +161,16 @@ double getVar(const char* name) {
 }
 
 char* getVarString(const char* name) {
-    printf("🐾 DEBUG: getVarString looking for '%s' (varCount=%d)\n", name, varCount);
-    for (int i = 0; i < varCount; i++) {
-        printf("   den[%d].name='%s'\n", i, den[i].name);
-        if (strcmp(den[i].name, name) == 0) {
-            printf("   FOUND! type=%d\n", den[i].type);
-            if (den[i].type == VAR_STRING) {
-                printf("   value='%s'\n", den[i].value.strValue);
-                return den[i].value.strValue;
-            }
-        }
+    Variable* v = findVar(name);
+    if (!v) {
+        printf("🐾 DEBUG: getVarString - '%s' not found\n", name);
+        return "";
     }
-    printf("   NOT FOUND!\n");
+    if (v->type == VAR_STRING) {
+        printf("🐾 DEBUG: getVarString - '%s' = '%s'\n", name, v->value.strValue ? v->value.strValue : "(null)");
+        return v->value.strValue ? v->value.strValue : "";
+    }
+    printf("🐾 DEBUG: getVarString - '%s' type=%d\n", name, v->type);
     return "";
 }
 
@@ -271,7 +271,9 @@ void setArrayStringElement(const char* name, int index, const char* value) {
         v->value.array[index]->value.strValue = NULL;
     }
     v->value.array[index]->value.strValue = malloc(strlen(value) + 1);
-    if (v->value.array[index]->value.strValue) strcpy(v->value.array[index]->value.strValue, value);
+    if (v->value.array[index]->value.strValue) {
+        strcpy(v->value.array[index]->value.strValue, value);
+    }
 }
 
 char* getArrayStringElement(const char* name, int index) {
@@ -288,7 +290,7 @@ char* getArrayStringElement(const char* name, int index) {
         return "";
     }
     
-    return v->value.array[index]->value.strValue;
+    return v->value.array[index]->value.strValue ? v->value.array[index]->value.strValue : "";
 }
 
 // ─── DELETE VARIABLE ────────────────────────────────────────────
@@ -332,7 +334,7 @@ void hunt() {
         if (den[i].type == VAR_NUMBER) {
             printf("   %-12s : %.5f (number)\n", den[i].name, den[i].value.numValue);
         } else if (den[i].type == VAR_STRING) {
-            printf("   %-12s : \"%s\" (string)\n", den[i].name, den[i].value.strValue);
+            printf("   %-12s : \"%s\" (string)\n", den[i].name, den[i].value.strValue ? den[i].value.strValue : "");
         } else if (den[i].type == VAR_ARRAY) {
             printf("   %-12s : [ ", den[i].name);
             int count = 0;
@@ -342,7 +344,7 @@ void hunt() {
                     if (den[i].value.array[j]->type == VAR_NUMBER) {
                         printf("%.5f", den[i].value.array[j]->value.numValue);
                     } else if (den[i].value.array[j]->type == VAR_STRING) {
-                        printf("\"%s\"", den[i].value.array[j]->value.strValue);
+                        printf("\"%s\"", den[i].value.array[j]->value.strValue ? den[i].value.array[j]->value.strValue : "");
                     }
                     count++;
                 }
