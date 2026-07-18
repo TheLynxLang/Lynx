@@ -3,18 +3,20 @@ Roar "🐾 Searching for: " + __term
 Set tempDir = getenv("TEMP")
 Set jsonFile = tempDir + "\\packages.json"
 
-Run "powershell -command \"Invoke-WebRequest -Uri https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json -OutFile " + jsonFile + "\""
+Run "curl -L -o " + jsonFile + " https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
 
 KittyReadFile jsonFile
 Set json = __file_content
 
-If KittyCheckIfStringContains(json, __term) {
+KittyCheckIfStringContains(json, __term)
+If __result == 1 {
     Roar "✅ Found matches:"
     KittySplitString(json, "\n")
     Set count = 0
     For i = 0 To __result_count - 1 {
         Set line = __result[i]
-        If KittyCheckIfStringContains(line, __term) {
+        KittyCheckIfStringContains(line, __term)
+        If __result == 1 {
             Roar "   " + Trim(line)
             Set count = count + 1
         }
