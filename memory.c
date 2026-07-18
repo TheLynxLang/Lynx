@@ -91,6 +91,7 @@ void setVar(const char* name, double val) {
 void setVarString(const char* name, const char* value) {
     Variable* v = findVar(name);
     if (v) {
+        // Clean up existing data
         if (v->type == VAR_ARRAY) {
             for (int i = 0; i < v->array_capacity; i++) {
                 if (v->value.array[i]) {
@@ -111,22 +112,30 @@ void setVarString(const char* name, const char* value) {
         }
         v->type = VAR_STRING;
         v->value.strValue = malloc(strlen(value) + 1);
-        if (v->value.strValue) strcpy(v->value.strValue, value);
+        if (v->value.strValue) {
+            strcpy(v->value.strValue, value);
+        }
         v->array_length = 0;
         v->array_capacity = 0;
         v->value.array = NULL;
         return;
     }
     
+    // Create new variable
     if (varCount < MAX_VARS) {
         strcpy(den[varCount].name, name);
         den[varCount].type = VAR_STRING;
         den[varCount].value.strValue = malloc(strlen(value) + 1);
-        if (den[varCount].value.strValue) strcpy(den[varCount].value.strValue, value);
+        if (den[varCount].value.strValue) {
+            strcpy(den[varCount].value.strValue, value);
+        }
         den[varCount].value.array = NULL;
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
         varCount++;
+        printf("🐾 DEBUG: Created string var '%s' = '%s' (varCount=%d)\n", name, value, varCount);
+    } else {
+        printf("🐾 ERROR: varCount (%d) >= MAX_VARS (%d)\n", varCount, MAX_VARS);
     }
 }
 
@@ -143,9 +152,14 @@ double getVar(const char* name) {
 char* getVarString(const char* name) {
     Variable* v = findVar(name);
     if (!v) {
+        printf("🐾 DEBUG: getVarString - '%s' not found\n", name);
         return "";
     }
-    if (v->type == VAR_STRING) return v->value.strValue;
+    if (v->type == VAR_STRING) {
+        printf("🐾 DEBUG: getVarString - '%s' = '%s'\n", name, v->value.strValue);
+        return v->value.strValue;
+    }
+    printf("🐾 DEBUG: getVarString - '%s' exists but type=%d\n", name, v->type);
     return "";
 }
 
