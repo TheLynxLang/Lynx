@@ -2,8 +2,9 @@ Roar "🐾 Installing dependencies..."
 
 Paw "libs"
 
-Set cacheDir = getenv("USERPROFILE") + "\\.lynx\\cache\\"
-Paw cacheDir   # requires C fix (see below)
+Set userProfile = getenv("USERPROFILE")
+Set cacheDir = userProfile + "\\.lynx\\cache\\"
+Paw cacheDir
 
 If KittyFileExists("lynx.lock") {
     Roar "🔒 Lockfile found — installing pinned versions"
@@ -56,7 +57,6 @@ Set content = __file_content
 KittySplitString(content, "\n")
 Set lines_count = __result_count
 Set in_deps = 0
-Set installed_packages = ""
 Set lock_content = ""
 
 For i = 0 To lines_count - 1 {
@@ -101,59 +101,6 @@ For i = 0 To lines_count - 1 {
             Roar "✅ Installed " + pkg
             
             lock_content = lock_content + pkg + " = \"" + version + "\"\n"
-            installed_packages = installed_packages + pkg + " "
-            
-            If KittyFileExists("libs\\" + pkg + "\\lynx.toml") {
-                KittyReadFile "libs\\" + pkg + "\\lynx.toml"
-                Set pkg_content = __file_content
-                KittySplitString(pkg_content, "\n")
-                Set pkg_lines_count = __result_count
-                Set pkg_in_deps = 0
-                
-                For j = 0 To pkg_lines_count - 1 {
-                    Set pkg_line = __result[j]
-                    If KittyCheckIfStringContains(pkg_line, "[dependencies]") {
-                        pkg_in_deps = 1
-                        Continue
-                    }
-                    
-                    If pkg_in_deps == 1 {
-                        If pkg_line == "" { Continue }
-                        If KittyCheckIfStringContains(pkg_line, "[") {
-                            Break
-                        }
-                        
-                        KittySplitString(pkg_line, "=")
-                        If __result_count >= 2 {
-                            Set dep_pkg = Trim(__result[0])
-                            Set dep_version = Trim(__result[1])
-                            dep_version = KittyReplaceString(dep_version, "\"", "")
-                            
-                            If KittyCheckIfStringContains(installed_packages, dep_pkg) == 0 {
-                                Roar "📦 Transitive dep: " + dep_pkg + " (" + dep_version + ")"
-                                Set dep_url = "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/" + dep_pkg + "/" + dep_version + "/package.tar.gz"
-                                Set dep_dest = "libs\\" + dep_pkg + ".tar.gz"
-                                Set dep_cache = cacheDir + dep_pkg + "_" + dep_version + ".tar.gz"
-                                
-                                KittyFileExists(dep_cache)
-                                If __result == 1 {
-                                    Run "copy " + dep_cache + " " + dep_dest
-                                } Else {
-                                    Run "powershell -command \"Invoke-WebRequest -Uri " + dep_url + " -OutFile " + dep_dest + "\""
-                                    Run "copy " + dep_dest + " " + dep_cache
-                                }
-                                
-                                Run "mkdir libs\\" + dep_pkg + " 2>nul"
-                                Run "tar -xzf " + dep_dest + " -C libs\\" + dep_pkg + "\\"
-                                Run "del " + dep_dest
-                                
-                                lock_content = lock_content + dep_pkg + " = \"" + dep_version + "\"\n"
-                                installed_packages = installed_packages + dep_pkg + " "
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }
