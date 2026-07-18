@@ -7,6 +7,13 @@
 #include <errno.h>
 #include "lynx.h"
 
+// Case-insensitive string compare for cross-platform
+#ifdef _WIN32
+#define STRICMP _stricmp
+#else
+#define STRICMP strcasecmp
+#endif
+
 #define LYNX_VERSION "v1.4.0"
 
 extern Scanner scanner;
@@ -51,7 +58,8 @@ void runFile(const char* path, int argc, char** argv) {
         #ifdef _WIN32
         GetModuleFileNameA(NULL, exePath, LYNX_MAX_PATH);
         #else
-        readlink("/proc/self/exe", exePath, LYNX_MAX_PATH);
+        ssize_t len = readlink("/proc/self/exe", exePath, LYNX_MAX_PATH - 1);
+        if (len != -1) exePath[len] = '\0';
         #endif
         char* lastSlash = strrchr(exePath, PATH_SEP);
         if (lastSlash) {
@@ -122,13 +130,13 @@ int main(int argc, char* argv[]) {
     lynx_error = NULL;
 
     if (argc >= 2) {
-        if (_stricmp(argv[1], "help") == 0 || _stricmp(argv[1], "--help") == 0) {
+        if (STRICMP(argv[1], "help") == 0 || STRICMP(argv[1], "--help") == 0) {
             show_help();
-        } else if (_stricmp(argv[1], "--version") == 0) {
+        } else if (STRICMP(argv[1], "--version") == 0) {
             printf("Lynx Engine %s\n", LYNX_VERSION);
         }
         #ifdef _WIN32
-        else if (_stricmp(argv[1], "--update") == 0) {
+        else if (STRICMP(argv[1], "--update") == 0) {
             printf("🔄 Preparing update...\n");
             char tempInstaller[LYNX_MAX_PATH];
             sprintf(tempInstaller, "%s\\LynxInstaller.exe", getenv("TEMP"));
@@ -143,7 +151,7 @@ int main(int argc, char* argv[]) {
             }
         }
         #endif
-        else if (_stricmp(argv[1], "init") == 0) {
+        else if (STRICMP(argv[1], "init") == 0) {
             if (argc >= 3) {
                 setVarString("__project_name", argv[2]);
             } else {
@@ -156,7 +164,7 @@ int main(int argc, char* argv[]) {
             }
             runFile("scripts/init.lnx", 0, NULL);
             return 0;
-        } else if (_stricmp(argv[1], "add") == 0) {
+        } else if (STRICMP(argv[1], "add") == 0) {
             if (argc >= 3) {
                 setVarString("__pkg", argv[2]);
                 runFile("scripts/add.lnx", 0, NULL);
@@ -166,10 +174,10 @@ int main(int argc, char* argv[]) {
                 clearError();
             }
             return 0;
-        } else if (_stricmp(argv[1], "install") == 0) {
+        } else if (STRICMP(argv[1], "install") == 0) {
             runFile("scripts/install.lnx", 0, NULL);
             return 0;
-        } else if (_stricmp(argv[1], "remove") == 0) {
+        } else if (STRICMP(argv[1], "remove") == 0) {
             if (argc >= 3) {
                 setVarString("__pkg", argv[2]);
                 runFile("scripts/remove.lnx", 0, NULL);
@@ -179,7 +187,7 @@ int main(int argc, char* argv[]) {
                 clearError();
             }
             return 0;
-        } else if (_stricmp(argv[1], "search") == 0) {
+        } else if (STRICMP(argv[1], "search") == 0) {
             if (argc >= 3) {
                 setVarString("__term", argv[2]);
                 runFile("scripts/search.lnx", 0, NULL);
@@ -189,16 +197,16 @@ int main(int argc, char* argv[]) {
                 clearError();
             }
             return 0;
-        } else if (_stricmp(argv[1], "update") == 0) {
+        } else if (STRICMP(argv[1], "update") == 0) {
             runFile("scripts/update.lnx", 0, NULL);
             return 0;
-        } else if (_stricmp(argv[1], "publish") == 0) {
+        } else if (STRICMP(argv[1], "publish") == 0) {
             runFile("scripts/publish.lnx", 0, NULL);
             return 0;
-        } else if (_stricmp(argv[1], "build") == 0) {
+        } else if (STRICMP(argv[1], "build") == 0) {
             runFile("src/main.lnx", 0, NULL);
             return 0;
-        } else if (_stricmp(argv[1], "fmt") == 0) {
+        } else if (STRICMP(argv[1], "fmt") == 0) {
             if (argc >= 3) {
                 format_file(argv[2]);
             } else {
@@ -207,7 +215,7 @@ int main(int argc, char* argv[]) {
                 clearError();
             }
             return 0;
-        } else if (_stricmp(argv[1], "check") == 0) {
+        } else if (STRICMP(argv[1], "check") == 0) {
             if (argc >= 3) {
                 check_file(argv[2]);
             } else {
@@ -251,9 +259,9 @@ int main(int argc, char* argv[]) {
         line[strcspn(line, "\n")] = 0;
         if (strlen(line) == 0) continue;
 
-        if (_stricmp(line, "help") == 0) {
+        if (STRICMP(line, "help") == 0) {
             show_help();
-        } else if (_stricmp(line, "exit") == 0) {
+        } else if (STRICMP(line, "exit") == 0) {
             break;
         } else if (strstr(line, ".lnx") != NULL) {
             runFile(line, 0, NULL);
