@@ -11,7 +11,6 @@
 #include <direct.h>
 #endif
 
-// ─── EXTERNAL DECLARATIONS ────────────────────────────────────
 extern Scanner scanner;
 extern char* lynx_error;
 extern char* loaded_packages[64];
@@ -34,7 +33,6 @@ extern void clearError();
 extern const char* tokenTypeToString(LynxTokenType type);
 extern char* getTokenText(Token t);
 
-// ─── STRING HELPERS ────────────────────────────────────────────
 static char* str_trim_copy(const char* str) {
     while (isspace((unsigned char)*str)) str++;
     if (*str == 0) return strdup("");
@@ -70,7 +68,6 @@ static char* str_replace(const char* src, const char* old, const char* new) {
     return buffer;
 }
 
-// ─── SPLIT STRING (Windows safe) ──────────────────────────────
 static char** split_string(const char* str, const char* delim, int* count) {
     char* copy = strdup(str);
     char** result = malloc(256 * sizeof(char*));
@@ -85,7 +82,6 @@ static char** split_string(const char* str, const char* delim, int* count) {
     return result;
 }
 
-// ─── PARSE ARRAY ──────────────────────────────────────────────
 static void parse_array() {
     Token nameToken = scanToken();
     if (nameToken.type != TOKEN_IDENTIFIER) {
@@ -132,7 +128,6 @@ static void parse_array() {
     printf("Array %s created with %d elements\n", varName, count);
 }
 
-// ─── PARSE TRY / CATCH ────────────────────────────────────────
 void parse_try_catch() {
     try_state.is_trying = 1;
     try_state.caught = 0;
@@ -141,7 +136,6 @@ void parse_try_catch() {
     try_state.error_col = 0;
     
     if (setjmp(try_state.env) == 0) {
-        // Try block
         Token brace = scanToken();
         if (brace.type != TOKEN_LBRACE) {
             char* text = getTokenText(brace);
@@ -157,11 +151,10 @@ void parse_try_catch() {
         }
         if (peekToken().type == TOKEN_RBRACE) scanToken();
         
-        // If no error occurred, skip the Catch block
         if (!lynx_error) {
             try_state.is_trying = 0;
             if (peekToken().type == TOKEN_CATCH) {
-                scanToken();  // Consume Catch
+                scanToken();
                 Token brace2 = scanToken();
                 if (brace2.type == TOKEN_LBRACE) {
                     int depth = 1;
@@ -173,24 +166,21 @@ void parse_try_catch() {
                 }
             }
         } else {
-            // Error occurred, but we'll handle it in the longjmp path
             try_state.is_trying = 0;
         }
     } else {
-        // Catch block (jumped here from setError)
         try_state.is_trying = 0;
         try_state.caught = 1;
         clearError();
         
         Token next = peekToken();
         if (next.type != TOKEN_CATCH) {
-            // No Catch block - re-throw the error
             if (try_state.error_message) {
                 fprintf(stderr, "🐾 %s\n", try_state.error_message);
             }
             return;
         }
-        scanToken();  // Consume Catch
+        scanToken();
         
         Token brace = scanToken();
         if (brace.type != TOKEN_LBRACE) {
@@ -209,7 +199,6 @@ void parse_try_catch() {
     }
 }
 
-// ─── KITTY PORT WITH EXPORT SUPPORT ───────────────────────────
 static void kitty_port(const char* name) {
     char lnxPath[256];
     snprintf(lnxPath, sizeof(lnxPath), "libs/%s/main.lnx", name);
@@ -257,20 +246,67 @@ static void kitty_port(const char* name) {
     clearError();
 }
 
-// ─── MAIN DISPATCH ────────────────────────────────────────────
+// ─── BUILD STRING FROM TOKENS ──────────────────────────────────
+static char* build_string_from_tokens() {
+    static char result[4096];
+    result[0] = '\0';
+    
+    while (1) {
+        Token tok = scanToken();
+        
+        if (tok.type == TOKEN_STRING) {
+            char part[4096];
+            snprintf(part, tok.length - 1, "%s", tok.start + 1);
+            strncat(result, part, sizeof(result) - strlen(result) - 1);
+        } else if (tok.type == TOKEN_IDENTIFIER) {
+            char name[64];
+            snprintf(name, tok.length + 1, "%s", tok.start);
+            char* val = getVarString(name);
+            if (val && strlen(val) > 0) {
+                strncat(result, val, sizeof(result) - strlen(result) - 1);
+            } else {
+                double num = getVar(name);
+                char numStr[32];
+                snprintf(numStr, sizeof(numStr), "%.5f", num);
+                strncat(result, numStr, sizeof(result) - strlen(result) - 1);
+            }
+        } else if (tok.type == TOKEN_NUMBER) {
+            char numStr[32];
+            snprintf(numStr, sizeof(numStr), "%.5f", atof(tok.start));
+            strncat(result, numStr, sizeof(result) - strlen(result) - 1);
+        } else {
+            // If it's not a value and not '+', we're done
+            if (tok.type != TOKEN_PLUS) {
+                // Put it back? We consumed it. Just break.
+                break;
+            }
+            // It's '+', continue to next token
+            continue;
+        }
+        
+        // Check if next token is '+'
+        Token next = peekToken();
+        if (next.type == TOKEN_PLUS) {
+            scanToken(); // consume '+'
+            continue;
+        } else {
+            break;
+        }
+    }
+    
+    return result;
+}
+
 int pawcom_parse_statement(Token t) {
     if (t.type == TOKEN_HUNT) { hunt(); return 1; }
 
-    // ─── ROAR WITH STRING CONCATENATION ────────────────────────
+    // ─── ROAR ──────────────────────────────────────────────────
     if (t.type == TOKEN_ROAR) {
-        // Build the result string
         char result[4096] = "";
-        int first = 1;
         
         while (1) {
             Token val = scanToken();
             
-            // If we hit a newline or EOF without anything to print
             if (val.type == TOKEN_EOF || val.type == TOKEN_ERROR) {
                 break;
             }
@@ -279,7 +315,6 @@ int pawcom_parse_statement(Token t) {
                 char str[4096];
                 snprintf(str, val.length - 1, "%s", val.start + 1);
                 strncat(result, str, sizeof(result) - strlen(result) - 1);
-                first = 0;
             } else if (val.type == TOKEN_IDENTIFIER) {
                 char name[64];
                 snprintf(name, val.length + 1, "%s", val.start);
@@ -297,14 +332,11 @@ int pawcom_parse_statement(Token t) {
                     snprintf(numStr, sizeof(numStr), "%.5f", num);
                     strncat(result, numStr, sizeof(result) - strlen(result) - 1);
                 }
-                first = 0;
             } else if (val.type == TOKEN_NUMBER) {
                 char numStr[32];
                 snprintf(numStr, sizeof(numStr), "%.5f", atof(val.start));
                 strncat(result, numStr, sizeof(result) - strlen(result) - 1);
-                first = 0;
             } else {
-                // If we got something else and it's not an operator, error
                 if (val.type != TOKEN_PLUS) {
                     char* text = getTokenText(val);
                     setErrorF("Roar expects string, identifier, or number, got '%s' (type: %s)",
@@ -313,19 +345,16 @@ int pawcom_parse_statement(Token t) {
                     clearError();
                     return 1;
                 }
-                // It's a '+', check if there's more
                 Token next = peekToken();
                 if (next.type == TOKEN_EOF || next.type == TOKEN_ERROR) {
                     break;
                 }
-                continue; // Continue to next token
+                continue;
             }
             
-            // Check if next token is '+'
             Token next = peekToken();
             if (next.type == TOKEN_PLUS) {
-                scanToken(); // consume '+'
-                // Check if there's anything after '+'
+                scanToken();
                 Token after = peekToken();
                 if (after.type == TOKEN_EOF || after.type == TOKEN_ERROR) {
                     setErrorF("Expected expression after '+' in Roar");
@@ -339,13 +368,13 @@ int pawcom_parse_statement(Token t) {
             }
         }
         
-        // If result is empty, print nothing
         if (strlen(result) > 0) {
             printf("%s\n", result);
         }
         return 1;
     }
 
+    // ─── SET ──────────────────────────────────────────────────
     if (t.type == TOKEN_SET) {
         Token nameToken = scanToken();
         if (nameToken.type != TOKEN_IDENTIFIER) {
@@ -360,39 +389,70 @@ int pawcom_parse_statement(Token t) {
         snprintf(varName, nameToken.length + 1, "%s", nameToken.start);
 
         Token op = scanToken();
-        if (op.type == TOKEN_EQUAL) {
-            if (peekToken().type == TOKEN_LBRACKET) {
-                parse_array();
-                if (lynx_error) {
-                    printf("%s\n", lynx_error);
-                    clearError();
-                }
-                return 1;
-            }
-            if (peekToken().type == TOKEN_STRING) {
-                Token str = scanToken();
-                char s[256];
-                snprintf(s, str.length - 1, "%s", str.start + 1);
-                setVarString(varName, s);
-            } else {
-                double val = parse_expression();
-                if (lynx_error) {
-                    printf("%s\n", lynx_error);
-                    clearError();
-                    return 1;
-                }
-                setVar(varName, val);
-            }
-        } else if (op.type == TOKEN_INCREMENT) {
-            setVar(varName, getVar(varName) + 1);
-        } else if (op.type == TOKEN_DECREMENT) {
-            setVar(varName, getVar(varName) - 1);
-        } else {
+        if (op.type != TOKEN_EQUAL) {
             char* text = getTokenText(op);
-            setErrorF("Set expected '=', '++', or '--', got '%s' (type: %s)",
+            setErrorF("Set expects '=', got '%s' (type: %s)",
                       text, tokenTypeToString(op.type));
             printf("%s\n", lynx_error);
             clearError();
+            return 1;
+        }
+
+        // Check if we're building a string (first token is string or identifier)
+        Token first = peekToken();
+        if (first.type == TOKEN_STRING || first.type == TOKEN_IDENTIFIER) {
+            char result[4096] = "";
+            
+            while (1) {
+                Token tok = scanToken();
+                
+                if (tok.type == TOKEN_STRING) {
+                    char part[4096];
+                    snprintf(part, tok.length - 1, "%s", tok.start + 1);
+                    strncat(result, part, sizeof(result) - strlen(result) - 1);
+                } else if (tok.type == TOKEN_IDENTIFIER) {
+                    char name[64];
+                    snprintf(name, tok.length + 1, "%s", tok.start);
+                    char* val = getVarString(name);
+                    if (val && strlen(val) > 0) {
+                        strncat(result, val, sizeof(result) - strlen(result) - 1);
+                    } else {
+                        // If variable doesn't exist or is empty, treat as empty string
+                    }
+                } else if (tok.type == TOKEN_NUMBER) {
+                    char numStr[32];
+                    snprintf(numStr, sizeof(numStr), "%.5f", atof(tok.start));
+                    strncat(result, numStr, sizeof(result) - strlen(result) - 1);
+                } else {
+                    if (tok.type != TOKEN_PLUS) {
+                        char* text = getTokenText(tok);
+                        setErrorF("Unexpected token in string expression: '%s'", text);
+                        printf("%s\n", lynx_error);
+                        clearError();
+                        return 1;
+                    }
+                    continue;
+                }
+                
+                Token next = peekToken();
+                if (next.type == TOKEN_PLUS) {
+                    scanToken();
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            
+            setVarString(varName, result);
+        } else {
+            // Numeric expression
+            double val = parse_expression();
+            if (lynx_error) {
+                printf("%s\n", lynx_error);
+                clearError();
+                return 1;
+            }
+            setVar(varName, val);
         }
         return 1;
     }
@@ -470,7 +530,6 @@ int pawcom_parse_statement(Token t) {
         return 1;
     }
 
-    // ─── FILE I/O ──────────────────────────────────────────────
     if (t.type == TOKEN_KITTY_WRITE_FILE) {
         Token path = scanToken();
         Token content = scanToken();
@@ -657,7 +716,6 @@ int pawcom_parse_statement(Token t) {
         return 1;
     }
 
-    // ─── STRING FUNCTIONS ──────────────────────────────────────
     if (t.type == TOKEN_STRING_SPLIT) {
         Token strTok = scanToken();
         Token delimTok = scanToken();
@@ -786,7 +844,6 @@ int pawcom_parse_statement(Token t) {
         return 1;
     }
 
-    // ─── UNKNOWN ────────────────────────────────────────────────
     if (t.type != TOKEN_HELP && t.type != TOKEN_EOF) {
         char* text = getTokenText(t);
         setErrorF("Unknown command '%s' (type: %s) at line %d. See 'Help' for available commands",
