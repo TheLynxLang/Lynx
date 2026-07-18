@@ -146,6 +146,11 @@ static LynxTokenType checkKeyword() {
     const char* s = scanner.start;
     int len = (int)(scanner.current - scanner.start);
 
+    // ─── TRY/CATCH MUST BE CHECKED FIRST ──────────────────────
+    if (strcmp(s, "Try") == 0) return TOKEN_TRY;
+    if (strcmp(s, "Catch") == 0) return TOKEN_CATCH;
+
+    // ─── OTHER KEYWORDS ──────────────────────────────────────
     if (strcmp(s, "Set") == 0) return TOKEN_SET;
     if (strcmp(s, "Roar") == 0) return TOKEN_ROAR;
     if (strcmp(s, "Hunt") == 0) return TOKEN_HUNT;
@@ -165,8 +170,6 @@ static LynxTokenType checkKeyword() {
     if (strcmp(s, "Or") == 0) return TOKEN_OR;
     if (strcmp(s, "Not") == 0) return TOKEN_NOT;
     if (strcmp(s, "Run") == 0) return TOKEN_RUN;
-    if (strcmp(s, "Try") == 0) return TOKEN_TRY;
-    if (strcmp(s, "Catch") == 0) return TOKEN_CATCH;
     if (strcmp(s, "Argv") == 0) return TOKEN_ARGV;
     if (strcmp(s, "Export") == 0) return TOKEN_EXPORT;
 
