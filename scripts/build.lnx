@@ -4,13 +4,15 @@ KittyReadFile "lynx.toml"
 Set content = __file_content
 
 Set project_name = "my_project"
-Set lines = KittySplitString(content, "\n")
-For i = 0 To __result - 1 {
+KittySplitString(content, "\n")
+Set lines_count = __result_count
+
+For i = 0 To lines_count - 1 {
     Set line = __result[i]
     If KittyCheckIfStringContains(line, "name = ") {
-        Set parts = KittySplitString(line, "=")
-        If Len(parts) >= 2 {
-            Set project_name = Trim(parts[1])
+        KittySplitString(line, "=")
+        If __result_count >= 2 {
+            Set project_name = Trim(__result[1])
             Set project_name = KittyReplaceString(project_name, "\"", "")
         }
         Break
@@ -19,10 +21,10 @@ For i = 0 To __result - 1 {
 
 Paw "bin"
 
-KittyFileExists "src/main.lnx"
+KittyFileExists("src/main.lnx")
 If __result == 0 {
     Roar "❌ src/main.lnx not found"
-    Exit
+    Return
 }
 
 Roar "▶️ Running src/main.lnx..."
