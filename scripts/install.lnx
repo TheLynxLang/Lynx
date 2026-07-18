@@ -9,15 +9,16 @@ If KittyFileExists("lynx.lock") {
     Roar "🔒 Lockfile found — installing pinned versions"
     KittyReadFile "lynx.lock"
     Set lock_content = __file_content
-    Set lock_lines = KittySplitString(lock_content, "\n")
+    KittySplitString(lock_content, "\n")
+    Set lock_lines_count = __result_count
 
-    For i = 0 To __result_count - 1 {
+    For i = 0 To lock_lines_count - 1 {
         Set line = __result[i]
         If line == "" { Continue }
-        Set parts = KittySplitString(line, "=")
-        If Len(parts) >= 2 {
-            Set pkg = Trim(parts[0])
-            Set version = Trim(parts[1])
+        KittySplitString(line, "=")
+        If __result_count >= 2 {
+            Set pkg = Trim(__result[0])
+            Set version = Trim(__result[1])
             version = KittyReplaceString(version, "\"", "")
             
             Roar "📦 Installing " + pkg + " (" + version + ")"
@@ -44,7 +45,7 @@ If KittyFileExists("lynx.lock") {
     }
     
     Roar "✅ All dependencies installed from lockfile"
-    Exit
+    Return
 }
 
 Roar "🔓 No lockfile found — resolving dependencies"
@@ -52,12 +53,13 @@ Roar "🔓 No lockfile found — resolving dependencies"
 KittyReadFile "lynx.toml"
 Set content = __file_content
 
-Set lines = KittySplitString(content, "\n")
+KittySplitString(content, "\n")
+Set lines_count = __result_count
 Set in_deps = 0
 Set installed_packages = ""
 Set lock_content = ""
 
-For i = 0 To __result_count - 1 {
+For i = 0 To lines_count - 1 {
     Set line = __result[i]
     
     If KittyCheckIfStringContains(line, "[dependencies]") {
@@ -71,10 +73,10 @@ For i = 0 To __result_count - 1 {
             Break
         }
         
-        Set parts = KittySplitString(line, "=")
-        If Len(parts) >= 2 {
-            Set pkg = Trim(parts[0])
-            Set version = Trim(parts[1])
+        KittySplitString(line, "=")
+        If __result_count >= 2 {
+            Set pkg = Trim(__result[0])
+            Set version = Trim(__result[1])
             version = KittyReplaceString(version, "\"", "")
             
             Roar "📦 Installing " + pkg + " (" + version + ")"
@@ -104,10 +106,11 @@ For i = 0 To __result_count - 1 {
             If KittyFileExists("libs\\" + pkg + "\\lynx.toml") {
                 KittyReadFile "libs\\" + pkg + "\\lynx.toml"
                 Set pkg_content = __file_content
-                Set pkg_lines = KittySplitString(pkg_content, "\n")
+                KittySplitString(pkg_content, "\n")
+                Set pkg_lines_count = __result_count
                 Set pkg_in_deps = 0
                 
-                For j = 0 To __result_count - 1 {
+                For j = 0 To pkg_lines_count - 1 {
                     Set pkg_line = __result[j]
                     If KittyCheckIfStringContains(pkg_line, "[dependencies]") {
                         pkg_in_deps = 1
@@ -120,10 +123,10 @@ For i = 0 To __result_count - 1 {
                             Break
                         }
                         
-                        Set pkg_parts = KittySplitString(pkg_line, "=")
-                        If Len(pkg_parts) >= 2 {
-                            Set dep_pkg = Trim(pkg_parts[0])
-                            Set dep_version = Trim(pkg_parts[1])
+                        KittySplitString(pkg_line, "=")
+                        If __result_count >= 2 {
+                            Set dep_pkg = Trim(__result[0])
+                            Set dep_version = Trim(__result[1])
                             dep_version = KittyReplaceString(dep_version, "\"", "")
                             
                             If KittyCheckIfStringContains(installed_packages, dep_pkg) == 0 {
