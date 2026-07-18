@@ -3,7 +3,7 @@ Roar "🐾 Updating packages..."
 Set tempDir = getenv("TEMP")
 Set jsonFile = tempDir + "\\packages.json"
 
-Run "powershell -command \"Invoke-WebRequest -Uri https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json -OutFile " + jsonFile + "\""
+Run "curl -L -o " + jsonFile + " https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
 
 KittyReadFile jsonFile
 Set json = __file_content
@@ -48,16 +48,18 @@ For i = 0 To lines_count - 1 {
             
             For j = 0 To json_lines_count - 1 {
                 Set jline = __result[j]
-                If KittyCheckIfStringContains(jline, "\"" + pkg + "\"") {
+                KittyCheckIfStringContains(jline, "\"" + pkg + "\"")
+                If __result == 1 {
                     For k = j To j + 10 {
                         If k < json_lines_count {
                             Set vline = __result[k]
-                            If KittyCheckIfStringContains(vline, "version") {
+                            KittyCheckIfStringContains(vline, "version")
+                            If __result == 1 {
                                 KittySplitString(vline, ":")
                                 If __result_count >= 2 {
                                     Set new_version = Trim(__result[1])
-                                    Set new_version = KittyReplaceString(new_version, "\"", "")
-                                    Set new_version = KittyReplaceString(new_version, ",", "")
+                                    new_version = KittyReplaceString(new_version, "\"", "")
+                                    new_version = KittyReplaceString(new_version, ",", "")
                                     Break
                                 }
                             }
