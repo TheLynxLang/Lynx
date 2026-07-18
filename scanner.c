@@ -83,6 +83,7 @@ const char* tokenTypeToString(LynxTokenType type) {
         case TOKEN_OR: return "Or";
         case TOKEN_NOT: return "Not";
         case TOKEN_RUN: return "Run";
+        case TOKEN_GETENV: return "getenv";
         case TOKEN_TRY: return "Try";
         case TOKEN_CATCH: return "Catch";
         case TOKEN_ARGV: return "Argv";
@@ -146,9 +147,11 @@ static LynxTokenType checkKeyword() {
     const char* s = scanner.start;
     int len = (int)(scanner.current - scanner.start);
 
-    // ─── ALL KEYWORDS WITH LEN CHECKS ──────────────────────────
+    // ─── TRY/CATCH MUST BE CHECKED FIRST ──────────────────────
     if (len == 3 && strncmp(s, "Try", 3) == 0) return TOKEN_TRY;
     if (len == 5 && strncmp(s, "Catch", 5) == 0) return TOKEN_CATCH;
+
+    // ─── OTHER KEYWORDS ──────────────────────────────────────
     if (len == 3 && strncmp(s, "Set", 3) == 0) return TOKEN_SET;
     if (len == 4 && strncmp(s, "Roar", 4) == 0) return TOKEN_ROAR;
     if (len == 4 && strncmp(s, "Hunt", 4) == 0) return TOKEN_HUNT;
@@ -168,8 +171,11 @@ static LynxTokenType checkKeyword() {
     if (len == 2 && strncmp(s, "Or", 2) == 0) return TOKEN_OR;
     if (len == 3 && strncmp(s, "Not", 3) == 0) return TOKEN_NOT;
     if (len == 3 && strncmp(s, "Run", 3) == 0) return TOKEN_RUN;
+    if (len == 6 && strncmp(s, "getenv", 6) == 0) return TOKEN_GETENV;
     if (len == 4 && strncmp(s, "Argv", 4) == 0) return TOKEN_ARGV;
     if (len == 6 && strncmp(s, "Export", 6) == 0) return TOKEN_EXPORT;
+
+    // File I/O
     if (len == 14 && strncmp(s, "KittyWriteFile", 14) == 0) return TOKEN_KITTY_WRITE_FILE;
     if (len == 13 && strncmp(s, "KittyReadFile", 13) == 0) return TOKEN_KITTY_READ_FILE;
     if (len == 3 && strncmp(s, "Paw", 3) == 0) return TOKEN_PAW;
@@ -177,8 +183,14 @@ static LynxTokenType checkKeyword() {
     if (len == 14 && strncmp(s, "KittyListFiles", 14) == 0) return TOKEN_KITTY_LIST_FILES;
     if (len == 15 && strncmp(s, "KittyRemoveFile", 15) == 0) return TOKEN_KITTY_REMOVE_FILE;
     if (len == 12 && strncmp(s, "KittyReadDir", 12) == 0) return TOKEN_KITTY_READ_DIR;
+
+    // Package manager
     if (len == 9 && strncmp(s, "KittyPort", 9) == 0) return TOKEN_KITTY_PORT;
+
+    // Error
     if (len == 8 && strncmp(s, "GetError", 8) == 0) return TOKEN_GET_ERROR;
+
+    // String functions
     if (len == 15 && strncmp(s, "KittySplitString", 15) == 0) return TOKEN_STRING_SPLIT;
     if (len == 24 && strncmp(s, "KittyCheckIfStringContains", 24) == 0) return TOKEN_STRING_CONTAINS;
     if (len == 20 && strncmp(s, "KittyReplaceString", 20) == 0) return TOKEN_STRING_REPLACE;
