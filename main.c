@@ -80,9 +80,7 @@ void runFile(const char* path, int argc, char** argv) {
     }
 
     if (!file) {
-        setErrorF("File '%s' not found", cleanPath);
-        fprintf(stderr, "🐾 %s\n", lynx_error);
-        clearError();
+        fprintf(stderr, "🐾 File '%s' not found\n", cleanPath);
         return;
     }
 
