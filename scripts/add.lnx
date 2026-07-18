@@ -3,19 +3,23 @@ Roar "🐾 Adding package: " + __pkg
 Set pkgName = __pkg
 Set version = "latest"
 
-If KittyCheckIfStringContains(__pkg, "@") {
-    Set parts = KittySplitString(__pkg, "@")
-    Set pkgName = parts[0]
-    Set version = parts[1]
+# Check if version is specified with @
+Set hasAt = KittyCheckIfStringContains(__pkg, "@")
+If hasAt == 1 {
+    KittySplitString(__pkg, "@")
+    Set pkgName = __result[0]
+    Set version = __result[1]
 }
 
 KittyReadFile "lynx.toml"
 Set content = __file_content
 
-If KittyCheckIfStringContains(content, pkgName + " = ") {
+Set containsPkg = KittyCheckIfStringContains(content, pkgName + " = ")
+If containsPkg == 1 {
     Roar "⚠️ Package already exists: " + pkgName
 } Else {
-    Set content = content + "\n" + pkgName + " = \"" + version + "\"\n"
+    Set newLine = pkgName + " = \"" + version + "\""
+    Set content = content + "\n" + newLine + "\n"
     KittyWriteFile "lynx.toml" content
     Roar "✅ Added " + pkgName + " (" + version + ")"
     Run "lynx install"
