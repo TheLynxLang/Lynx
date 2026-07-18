@@ -1,11 +1,11 @@
-Roar "🐾 Adding package: " + __pkg
+Roar "🐾 Adding package:"
+Roar __pkg
 
 Set pkgName = __pkg
 Set version = "latest"
 
 # Check if version is specified with @
-Set hasAt = KittyCheckIfStringContains(__pkg, "@")
-If hasAt == 1 {
+If KittyCheckIfStringContains(__pkg, "@") {
     KittySplitString(__pkg, "@")
     Set pkgName = __result[0]
     Set version = __result[1]
@@ -14,8 +14,7 @@ If hasAt == 1 {
 KittyReadFile "lynx.toml"
 Set content = __file_content
 
-Set containsPkg = KittyCheckIfStringContains(content, pkgName + " = ")
-If containsPkg == 1 {
+If KittyCheckIfStringContains(content, pkgName + " = ") {
     Roar "⚠️ Package already exists: " + pkgName
 } Else {
     Set newLine = pkgName + " = \"" + version + "\""
