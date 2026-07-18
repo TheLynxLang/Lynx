@@ -164,12 +164,12 @@ int main(int argc, char* argv[]) {
             if (argc >= 3) {
                 setVarString("__project_name", argv[2]);
             } else {
-                setVarString("__project_name", "");
+                setVarString("__project_name", "my_project");
             }
             if (argc >= 4) {
                 setVarString("__author", argv[3]);
             } else {
-                setVarString("__author", "");
+                setVarString("__author", "Anonymous");
             }
             runFile("scripts/init.lnx", 0, NULL);
             return 0;
