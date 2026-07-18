@@ -20,6 +20,9 @@ extern Scanner scanner;
 extern char* lynx_error;
 extern LynxError lynx_error_state;
 
+// ─── GLOBAL TRY/CATCH STATE ──────────────────────────────────
+TryState try_state = {0};
+
 void show_help() {
     printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
     printf("\n  init               - Create new Lynx project\n");
@@ -122,10 +125,18 @@ int main(int argc, char* argv[]) {
     SetConsoleOutputCP(65001);
     #endif
     
+    // Initialize error state
     lynx_error_state.message = NULL;
     lynx_error_state.line = 0;
     lynx_error_state.col = 0;
     lynx_error = NULL;
+    
+    // Initialize try/catch state
+    try_state.is_trying = 0;
+    try_state.caught = 0;
+    try_state.error_message = NULL;
+    try_state.error_line = 0;
+    try_state.error_col = 0;
 
     if (argc >= 2) {
         if (STRICMP(argv[1], "help") == 0 || STRICMP(argv[1], "--help") == 0) {
