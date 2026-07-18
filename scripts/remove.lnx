@@ -7,7 +7,7 @@ Set found = 0
 Set new_content = ""
 Set lines = KittySplitString(content, "\n")
 
-For i = 0 To __result - 1 {
+For i = 0 To __result_count - 1 {
     Set line = __result[i]
     If KittyCheckIfStringContains(line, __pkg + " = ") {
         Set found = 1
@@ -23,13 +23,13 @@ If found == 0 {
 
 KittyWriteFile "lynx.toml" new_content
 
-KittyFileExists "lynx.lock"
+KittyFileExists("lynx.lock")
 If __result == 1 {
     KittyReadFile "lynx.lock"
     Set lockContent = __file_content
     Set newLock = ""
     Set lockLines = KittySplitString(lockContent, "\n")
-    For i = 0 To __result - 1 {
+    For i = 0 To __result_count - 1 {
         Set line = __result[i]
         If KittyCheckIfStringContains(line, __pkg + " = ") {
             Continue
