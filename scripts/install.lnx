@@ -33,7 +33,7 @@ If KittyFileExists("lynx.lock") {
                 Roar "💾 Using cached: " + pkg
                 Run "copy " + cacheFile + " " + dest
             } Else {
-                Run "powershell -command \"Invoke-WebRequest -Uri " + url + " -OutFile " + dest + "\""
+                Run "curl -L -o " + dest + " " + url
                 Run "copy " + dest + " " + cacheFile
             }
             
@@ -90,7 +90,7 @@ For i = 0 To lines_count - 1 {
                 Roar "💾 Using cached: " + pkg
                 Run "copy " + cacheFile + " " + dest
             } Else {
-                Run "powershell -command \"Invoke-WebRequest -Uri " + url + " -OutFile " + dest + "\""
+                Run "curl -L -o " + dest + " " + url
                 Run "copy " + dest + " " + cacheFile
             }
             
