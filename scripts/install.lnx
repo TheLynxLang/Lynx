@@ -3,7 +3,7 @@ Roar "🐾 Installing dependencies..."
 Paw "libs"
 
 Set cacheDir = getenv("USERPROFILE") + "\\.lynx\\cache\\"
-Paw cacheDir
+Paw cacheDir   # requires C fix (see below)
 
 If KittyFileExists("lynx.lock") {
     Roar "🔒 Lockfile found — installing pinned versions"
