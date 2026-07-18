@@ -1,916 +1,323 @@
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <ctype.h>
-#include <stdarg.h>
-#include <setjmp.h>
+#include <stdbool.h>
 #include "lynx.h"
 #include "platform.h"
 
-// ─── GLOBALS ──────────────────────────────────────────────────
-// These are defined in memory.c - only declare extern here
-extern char* lynx_error;
-extern LynxError lynx_error_state;
-extern TryState try_state;
+Scanner scanner;
 
-char* loaded_packages[64];
-int loaded_pkg_count = 0;
-
-// ─── FORWARD DECLARATIONS ──────────────────────────────────────
-void parse_statement();
-double parse_expression();
-int parse_logic_expression();
-
-// ─── STRING HELPERS ────────────────────────────────────────────
-static char* str_trim_copy(const char* str) {
-    while (isspace((unsigned char)*str)) str++;
-    if (*str == 0) return strdup("");
-    const char* end = str + strlen(str) - 1;
-    while (end > str && isspace((unsigned char)*end)) end--;
-    size_t len = end - str + 1;
-    char* result = malloc(len + 1);
-    strncpy(result, str, len);
-    result[len] = '\0';
-    return result;
-}
-
-static int str_contains(const char* haystack, const char* needle) {
-    return strstr(haystack, needle) != NULL;
-}
-
-static char* str_replace(const char* src, const char* old, const char* new) {
-    static char buffer[4096];
-    char* p = buffer;
-    const char* q = src;
-    size_t old_len = strlen(old);
-    size_t new_len = strlen(new);
-    while (*q) {
-        if (strncmp(q, old, old_len) == 0) {
-            strcpy(p, new);
-            p += new_len;
-            q += old_len;
-        } else {
-            *p++ = *q++;
-        }
+void initScanner(const char* source) {
+    scanner.start = source;
+    scanner.current = source;
+    scanner.line = 1;
+    scanner.col = 1;
+    
+    // Skip UTF-8 BOM (EF BB BF)
+    if ((unsigned char)source[0] == 0xEF && 
+        (unsigned char)source[1] == 0xBB && 
+        (unsigned char)source[2] == 0xBF) {
+        scanner.current += 3;
+        scanner.start += 3;
     }
-    *p = '\0';
+    
+    // Skip UTF-16 LE BOM (FF FE)
+    if ((unsigned char)source[0] == 0xFF && 
+        (unsigned char)source[1] == 0xFE) {
+        scanner.current += 2;
+        scanner.start += 2;
+    }
+    
+    // Skip UTF-16 BE BOM (FE FF)
+    if ((unsigned char)source[0] == 0xFE && 
+        (unsigned char)source[1] == 0xFF) {
+        scanner.current += 2;
+        scanner.start += 2;
+    }
+}
+
+static bool isAtEnd() {
+    return *scanner.current == '\0';
+}
+
+static char advance() {
+    scanner.col++;
+    return *scanner.current++;
+}
+
+static char peek() {
+    return *scanner.current;
+}
+
+static char peekNext() {
+    return scanner.current[1];
+}
+
+static Token makeToken(LynxTokenType type) {
+    Token token;
+    token.type = type;
+    token.start = scanner.start;
+    token.length = (int)(scanner.current - scanner.start);
+    token.line = scanner.line;
+    token.col = scanner.col - token.length;
+    return token;
+}
+
+const char* tokenTypeToString(LynxTokenType type) {
+    switch (type) {
+        case TOKEN_SET: return "Set";
+        case TOKEN_ROAR: return "Roar";
+        case TOKEN_HUNT: return "Hunt";
+        case TOKEN_STALK_PACK: return "Stalk_Pack";
+        case TOKEN_POUNCE: return "Pounce";
+        case TOKEN_IF: return "If";
+        case TOKEN_ELSE: return "Else";
+        case TOKEN_LOAD_LIB: return "LoadLib";
+        case TOKEN_FUNC: return "Func";
+        case TOKEN_RETURN: return "Return";
+        case TOKEN_FOR: return "For";
+        case TOKEN_WHILE: return "While";
+        case TOKEN_BREAK: return "Break";
+        case TOKEN_CONTINUE: return "Continue";
+        case TOKEN_AND: return "And";
+        case TOKEN_OR: return "Or";
+        case TOKEN_NOT: return "Not";
+        case TOKEN_RUN: return "Run";
+        case TOKEN_GETENV: return "getenv";
+        case TOKEN_TRY: return "Try";
+        case TOKEN_CATCH: return "Catch";
+        case TOKEN_ARGV: return "Argv";
+        case TOKEN_EXPORT: return "Export";
+        case TOKEN_KITTY_WRITE_FILE: return "KittyWriteFile";
+        case TOKEN_KITTY_READ_FILE: return "KittyReadFile";
+        case TOKEN_PAW: return "Paw";
+        case TOKEN_KITTY_FILE_EXISTS: return "KittyFileExists";
+        case TOKEN_KITTY_LIST_FILES: return "KittyListFiles";
+        case TOKEN_KITTY_REMOVE_FILE: return "KittyRemoveFile";
+        case TOKEN_KITTY_READ_DIR: return "KittyReadDir";
+        case TOKEN_KITTY_PORT: return "KittyPort";
+        case TOKEN_GET_ERROR: return "GetError";
+        case TOKEN_STRING_SPLIT: return "KittySplitString";
+        case TOKEN_STRING_CONTAINS: return "KittyCheckIfStringContains";
+        case TOKEN_STRING_REPLACE: return "KittyReplaceString";
+        case TOKEN_TRIM: return "Trim";
+        case TOKEN_LEN: return "Len";
+        case TOKEN_IDENTIFIER: return "identifier";
+        case TOKEN_STRING: return "string literal";
+        case TOKEN_NUMBER: return "number";
+        case TOKEN_EQUAL: return "=";
+        case TOKEN_PLUS: return "+";
+        case TOKEN_MINUS: return "-";
+        case TOKEN_STAR: return "*";
+        case TOKEN_SLASH: return "/";
+        case TOKEN_MODULO: return "%";
+        case TOKEN_INCREMENT: return "++";
+        case TOKEN_DECREMENT: return "--";
+        case TOKEN_EQ: return "==";
+        case TOKEN_NE: return "!=";
+        case TOKEN_GT: return ">";
+        case TOKEN_LT: return "<";
+        case TOKEN_GE: return ">=";
+        case TOKEN_LE: return "<=";
+        case TOKEN_LBRACE: return "{";
+        case TOKEN_RBRACE: return "}";
+        case TOKEN_LPAREN: return "(";
+        case TOKEN_RPAREN: return ")";
+        case TOKEN_LBRACKET: return "[";
+        case TOKEN_RBRACKET: return "]";
+        case TOKEN_COMMA: return ",";
+        case TOKEN_COLON: return ":";
+        case TOKEN_EOF: return "EOF";
+        case TOKEN_ERROR: return "error token";
+        default: return "unknown";
+    }
+}
+
+char* getTokenText(Token t) {
+    static char buffer[256];
+    if (t.length < 255) {
+        snprintf(buffer, t.length + 1, "%s", t.start);
+    } else {
+        snprintf(buffer, sizeof(buffer), "%s...", t.start);
+    }
     return buffer;
 }
 
-static char** split_string(const char* str, const char* delim, int* count) {
-    char* copy = strdup(str);
-    char** result = malloc(256 * sizeof(char*));
-    *count = 0;
-    char* next_token = NULL;
-    char* token = strtok_r(copy, delim, &next_token);
-    while (token && *count < 256) {
-        result[(*count)++] = strdup(token);
-        token = strtok_r(NULL, delim, &next_token);
-    }
-    free(copy);
-    return result;
+static LynxTokenType checkKeyword() {
+    const char* s = scanner.start;
+    int len = (int)(scanner.current - scanner.start);
+
+    // ─── TRY/CATCH MUST BE CHECKED FIRST ──────────────────────
+    if (len == 3 && strncmp(s, "Try", 3) == 0) return TOKEN_TRY;
+    if (len == 5 && strncmp(s, "Catch", 5) == 0) return TOKEN_CATCH;
+
+    // ─── OTHER KEYWORDS ──────────────────────────────────────
+    if (len == 3 && strncmp(s, "Set", 3) == 0) return TOKEN_SET;
+    if (len == 4 && strncmp(s, "Roar", 4) == 0) return TOKEN_ROAR;
+    if (len == 4 && strncmp(s, "Hunt", 4) == 0) return TOKEN_HUNT;
+    if (len == 4 && strncmp(s, "Help", 4) == 0) return TOKEN_HELP;
+    if (len == 10 && strncmp(s, "Stalk_Pack", 10) == 0) return TOKEN_STALK_PACK;
+    if (len == 6 && strncmp(s, "Pounce", 6) == 0) return TOKEN_POUNCE;
+    if (len == 2 && strncmp(s, "If", 2) == 0) return TOKEN_IF;
+    if (len == 4 && strncmp(s, "Else", 4) == 0) return TOKEN_ELSE;
+    if (len == 7 && strncmp(s, "LoadLib", 7) == 0) return TOKEN_LOAD_LIB;
+    if (len == 4 && strncmp(s, "Func", 4) == 0) return TOKEN_FUNC;
+    if (len == 6 && strncmp(s, "Return", 6) == 0) return TOKEN_RETURN;
+    if (len == 3 && strncmp(s, "For", 3) == 0) return TOKEN_FOR;
+    if (len == 5 && strncmp(s, "While", 5) == 0) return TOKEN_WHILE;
+    if (len == 5 && strncmp(s, "Break", 5) == 0) return TOKEN_BREAK;
+    if (len == 8 && strncmp(s, "Continue", 8) == 0) return TOKEN_CONTINUE;
+    if (len == 3 && strncmp(s, "And", 3) == 0) return TOKEN_AND;
+    if (len == 2 && strncmp(s, "Or", 2) == 0) return TOKEN_OR;
+    if (len == 3 && strncmp(s, "Not", 3) == 0) return TOKEN_NOT;
+    if (len == 3 && strncmp(s, "Run", 3) == 0) return TOKEN_RUN;
+    if (len == 6 && strncmp(s, "getenv", 6) == 0) return TOKEN_GETENV;
+    if (len == 4 && strncmp(s, "Argv", 4) == 0) return TOKEN_ARGV;
+    if (len == 6 && strncmp(s, "Export", 6) == 0) return TOKEN_EXPORT;
+
+    // File I/O
+    if (len == 14 && strncmp(s, "KittyWriteFile", 14) == 0) return TOKEN_KITTY_WRITE_FILE;
+    if (len == 13 && strncmp(s, "KittyReadFile", 13) == 0) return TOKEN_KITTY_READ_FILE;
+    if (len == 3 && strncmp(s, "Paw", 3) == 0) return TOKEN_PAW;
+    if (len == 15 && strncmp(s, "KittyFileExists", 15) == 0) return TOKEN_KITTY_FILE_EXISTS;
+    if (len == 14 && strncmp(s, "KittyListFiles", 14) == 0) return TOKEN_KITTY_LIST_FILES;
+    if (len == 15 && strncmp(s, "KittyRemoveFile", 15) == 0) return TOKEN_KITTY_REMOVE_FILE;
+    if (len == 12 && strncmp(s, "KittyReadDir", 12) == 0) return TOKEN_KITTY_READ_DIR;
+
+    // Package manager
+    if (len == 9 && strncmp(s, "KittyPort", 9) == 0) return TOKEN_KITTY_PORT;
+
+    // Error
+    if (len == 8 && strncmp(s, "GetError", 8) == 0) return TOKEN_GET_ERROR;
+
+    // String functions
+    if (len == 15 && strncmp(s, "KittySplitString", 15) == 0) return TOKEN_STRING_SPLIT;
+    if (len == 24 && strncmp(s, "KittyCheckIfStringContains", 24) == 0) return TOKEN_STRING_CONTAINS;
+    if (len == 20 && strncmp(s, "KittyReplaceString", 20) == 0) return TOKEN_STRING_REPLACE;
+    if (len == 4 && strncmp(s, "Trim", 4) == 0) return TOKEN_TRIM;
+    if (len == 3 && strncmp(s, "Len", 3) == 0) return TOKEN_LEN;
+
+    return TOKEN_IDENTIFIER;
 }
 
-// ─── ERROR HANDLING ──────────────────────────────────────────────
-void clearError() {
-    if (lynx_error) {
-        free(lynx_error);
-        lynx_error = NULL;
-    }
-    if (lynx_error_state.message) {
-        free(lynx_error_state.message);
-        lynx_error_state.message = NULL;
-    }
-    lynx_error_state.line = 0;
-    lynx_error_state.col = 0;
+static Token identifier() {
+    while (isalnum(peek()) || peek() == '_') advance();
+    return makeToken(checkKeyword());
 }
 
-void setError(const char* msg, int line, int col) {
-    clearError();
-    lynx_error = malloc(256);
-    lynx_error_state.message = malloc(256);
-    if (lynx_error) {
-        snprintf(lynx_error, 256, "[Line %d, Col %d] %s", line, col, msg);
-        if (lynx_error_state.message) {
-            strcpy(lynx_error_state.message, lynx_error);
-        }
-        lynx_error_state.line = line;
-        lynx_error_state.col = col;
+static Token number() {
+    while (isdigit(peek())) advance();
+    if (peek() == '.' && isdigit(peekNext())) {
+        advance();
+        while (isdigit(peek())) advance();
     }
-    
-    // If we're in a Try block, jump to Catch
-    if (try_state.is_trying) {
-        try_state.error_message = lynx_error_state.message;
-        try_state.error_line = line;
-        try_state.error_col = col;
-        longjmp(try_state.env, 1);
-    }
+    return makeToken(TOKEN_NUMBER);
 }
 
-void setErrorF(const char* format, ...) {
-    char buffer[512];
-    va_list args;
-    va_start(args, format);
-    vsnprintf(buffer, sizeof(buffer), format, args);
-    va_end(args);
-    
-    int line = 1, col = 1;
-    // Only peek token if scanner is initialized
-    if (scanner.current != NULL) {
-        Token t = peekToken();
-        line = t.line;
-        col = t.col;
-    }
-    setError(buffer, line, col);
+Token peekToken() {
+    Scanner checkpoint = scanner;
+    Token token = scanToken();
+    scanner = checkpoint;
+    return token;
 }
 
-// ─── PARSING ──────────────────────────────────────────────────────
-
-double parse_primary() {
-    Token t = scanToken();
-    if (t.type == TOKEN_NUMBER) return atof(t.start);
-    
-    // ─── HANDLE LEN() ──────────────────────────────────────────
-    if (t.type == TOKEN_LEN) {
-        Token lparen = scanToken();
-        if (lparen.type != TOKEN_LPAREN) {
-            setErrorF("Len expects '('", lparen.line, lparen.col);
-            return 0;
-        }
-        
-        Token arg = scanToken();
-        if (arg.type == TOKEN_IDENTIFIER) {
-            char name[64];
-            snprintf(name, arg.length + 1, "%s", arg.start);
-            char* str = getVarString(name);
-            double result = (double)strlen(str);
-            setVar("__result", result);
-            
-            Token rparen = scanToken();
-            if (rparen.type != TOKEN_RPAREN) {
-                setErrorF("Len expects ')'", rparen.line, rparen.col);
-                return 0;
-            }
-            return result;
-        } else if (arg.type == TOKEN_STRING) {
-            char str[4096];
-            snprintf(str, arg.length - 1, "%s", arg.start + 1);
-            double result = (double)strlen(str);
-            setVar("__result", result);
-            
-            Token rparen = scanToken();
-            if (rparen.type != TOKEN_RPAREN) {
-                setErrorF("Len expects ')'", rparen.line, rparen.col);
-                return 0;
-            }
-            return result;
-        } else {
-            setErrorF("Len expects a string or variable name", arg.line, arg.col);
-            return 0;
-        }
-    }
-    
-    // ─── HANDLE getenv() ──────────────────────────────────────
-    if (t.type == TOKEN_GETENV) {
-        Token lparen = scanToken();
-        if (lparen.type != TOKEN_LPAREN) {
-            setErrorF("getenv expects '('", lparen.line, lparen.col);
-            return 0;
-        }
-        
-        Token arg = scanToken();
-        if (arg.type != TOKEN_STRING) {
-            setErrorF("getenv expects a string", arg.line, arg.col);
-            return 0;
-        }
-        
-        char name[256];
-        snprintf(name, arg.length - 1, "%s", arg.start + 1);
-        const char* value = getenv(name);
-        
-        Token rparen = scanToken();
-        if (rparen.type != TOKEN_RPAREN) {
-            setErrorF("getenv expects ')'", rparen.line, rparen.col);
-            return 0;
-        }
-        
-        if (value) {
-            setVarString("__result", value);
-            setVar("__result", (double)strlen(value));
-            return (double)strlen(value);
-        } else {
-            setVarString("__result", "");
-            setVar("__result", 0);
-            return 0;
-        }
-    }
-    
-    // ─── HANDLE KittyCheckIfStringContains() ──────────────────
-    if (t.type == TOKEN_STRING_CONTAINS) {
-        Token lparen = scanToken();
-        if (lparen.type != TOKEN_LPAREN) {
-            setErrorF("KittyCheckIfStringContains expects '('", lparen.line, lparen.col);
-            return 0;
-        }
-        
-        Token hayTok = scanToken();
-        Token comma = scanToken();
-        Token needleTok = scanToken();
-        
-        if (hayTok.type != TOKEN_STRING && hayTok.type != TOKEN_IDENTIFIER) {
-            setErrorF("KittyCheckIfStringContains expects string or variable", hayTok.line, hayTok.col);
-            return 0;
-        }
-        if (needleTok.type != TOKEN_STRING && needleTok.type != TOKEN_IDENTIFIER) {
-            setErrorF("KittyCheckIfStringContains expects string or variable", needleTok.line, needleTok.col);
-            return 0;
-        }
-        
-        char hay[4096];
-        char needle[4096];
-        
-        if (hayTok.type == TOKEN_STRING) {
-            snprintf(hay, hayTok.length - 1, "%s", hayTok.start + 1);
-        } else {
-            char name[64];
-            snprintf(name, hayTok.length + 1, "%s", hayTok.start);
-            char* val = getVarString(name);
-            snprintf(hay, sizeof(hay), "%s", val);
-        }
-        
-        if (needleTok.type == TOKEN_STRING) {
-            snprintf(needle, needleTok.length - 1, "%s", needleTok.start + 1);
-        } else {
-            char name[64];
-            snprintf(name, needleTok.length + 1, "%s", needleTok.start);
-            char* val = getVarString(name);
-            snprintf(needle, sizeof(needle), "%s", val);
-        }
-        
-        Token rparen = scanToken();
-        if (rparen.type != TOKEN_RPAREN) {
-            setErrorF("KittyCheckIfStringContains expects ')'", rparen.line, rparen.col);
-            return 0;
-        }
-        
-        int result = str_contains(hay, needle);
-        setVar("__result", result ? 1.0 : 0.0);
-        return result ? 1.0 : 0.0;
-    }
-    
-    // ─── HANDLE KittySplitString() ─────────────────────────────
-    if (t.type == TOKEN_STRING_SPLIT) {
-        Token lparen = scanToken();
-        if (lparen.type != TOKEN_LPAREN) {
-            setErrorF("KittySplitString expects '('", lparen.line, lparen.col);
-            return 0;
-        }
-        
-        Token strTok = scanToken();
-        Token comma = scanToken();
-        Token delimTok = scanToken();
-        
-        if (strTok.type != TOKEN_STRING && strTok.type != TOKEN_IDENTIFIER) {
-            setErrorF("KittySplitString expects string or variable", strTok.line, strTok.col);
-            return 0;
-        }
-        if (delimTok.type != TOKEN_STRING && delimTok.type != TOKEN_IDENTIFIER) {
-            setErrorF("KittySplitString expects string or variable", delimTok.line, delimTok.col);
-            return 0;
-        }
-        
-        char str[4096];
-        char delim[256];
-        
-        if (strTok.type == TOKEN_STRING) {
-            snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
-        } else {
-            char name[64];
-            snprintf(name, strTok.length + 1, "%s", strTok.start);
-            char* val = getVarString(name);
-            snprintf(str, sizeof(str), "%s", val);
-        }
-        
-        if (delimTok.type == TOKEN_STRING) {
-            snprintf(delim, delimTok.length - 1, "%s", delimTok.start + 1);
-        } else {
-            char name[64];
-            snprintf(name, delimTok.length + 1, "%s", delimTok.start);
-            char* val = getVarString(name);
-            snprintf(delim, sizeof(delim), "%s", val);
-        }
-        
-        Token rparen = scanToken();
-        if (rparen.type != TOKEN_RPAREN) {
-            setErrorF("KittySplitString expects ')'", rparen.line, rparen.col);
-            return 0;
-        }
-        
-        int count = 0;
-        char** result = split_string(str, delim, &count);
-        
-        for (int i = 0; i < count; i++) {
-            setArrayStringElement("__result", i, result[i]);
-            free(result[i]);
-        }
-        free(result);
-        setVar("__result_count", (double)count);
-        return (double)count;
-    }
-    
-    // ─── HANDLE KittyReplaceString() ──────────────────────────
-    if (t.type == TOKEN_STRING_REPLACE) {
-        Token lparen = scanToken();
-        if (lparen.type != TOKEN_LPAREN) {
-            setErrorF("KittyReplaceString expects '('", lparen.line, lparen.col);
-            return 0;
-        }
-        
-        Token srcTok = scanToken();
-        Token comma1 = scanToken();
-        Token oldTok = scanToken();
-        Token comma2 = scanToken();
-        Token newTok = scanToken();
-        
-        if (srcTok.type != TOKEN_STRING && srcTok.type != TOKEN_IDENTIFIER) {
-            setErrorF("KittyReplaceString expects string or variable", srcTok.line, srcTok.col);
-            return 0;
-        }
-        if (oldTok.type != TOKEN_STRING && oldTok.type != TOKEN_IDENTIFIER) {
-            setErrorF("KittyReplaceString expects string or variable", oldTok.line, oldTok.col);
-            return 0;
-        }
-        if (newTok.type != TOKEN_STRING && newTok.type != TOKEN_IDENTIFIER) {
-            setErrorF("KittyReplaceString expects string or variable", newTok.line, newTok.col);
-            return 0;
-        }
-        
-        char src[4096], old[256], new[256];
-        
-        if (srcTok.type == TOKEN_STRING) {
-            snprintf(src, srcTok.length - 1, "%s", srcTok.start + 1);
-        } else {
-            char name[64];
-            snprintf(name, srcTok.length + 1, "%s", srcTok.start);
-            char* val = getVarString(name);
-            snprintf(src, sizeof(src), "%s", val);
-        }
-        
-        if (oldTok.type == TOKEN_STRING) {
-            snprintf(old, oldTok.length - 1, "%s", oldTok.start + 1);
-        } else {
-            char name[64];
-            snprintf(name, oldTok.length + 1, "%s", oldTok.start);
-            char* val = getVarString(name);
-            snprintf(old, sizeof(old), "%s", val);
-        }
-        
-        if (newTok.type == TOKEN_STRING) {
-            snprintf(new, newTok.length - 1, "%s", newTok.start + 1);
-        } else {
-            char name[64];
-            snprintf(name, newTok.length + 1, "%s", newTok.start);
-            char* val = getVarString(name);
-            snprintf(new, sizeof(new), "%s", val);
-        }
-        
-        Token rparen = scanToken();
-        if (rparen.type != TOKEN_RPAREN) {
-            setErrorF("KittyReplaceString expects ')'", rparen.line, rparen.col);
-            return 0;
-        }
-        
-        char* result = str_replace(src, old, new);
-        setVarString("__result", result);
-        return (double)strlen(result);
-    }
-    
-    // ─── HANDLE Trim() ─────────────────────────────────────────
-    if (t.type == TOKEN_TRIM) {
-        Token lparen = scanToken();
-        if (lparen.type != TOKEN_LPAREN) {
-            setErrorF("Trim expects '('", lparen.line, lparen.col);
-            return 0;
-        }
-        
-        Token strTok = scanToken();
-        if (strTok.type != TOKEN_STRING && strTok.type != TOKEN_IDENTIFIER) {
-            setErrorF("Trim expects string or variable", strTok.line, strTok.col);
-            return 0;
-        }
-        
-        char str[4096];
-        if (strTok.type == TOKEN_STRING) {
-            snprintf(str, strTok.length - 1, "%s", strTok.start + 1);
-        } else {
-            char name[64];
-            snprintf(name, strTok.length + 1, "%s", strTok.start);
-            char* val = getVarString(name);
-            snprintf(str, sizeof(str), "%s", val);
-        }
-        
-        Token rparen = scanToken();
-        if (rparen.type != TOKEN_RPAREN) {
-            setErrorF("Trim expects ')'", rparen.line, rparen.col);
-            return 0;
-        }
-        
-        char* trimmed = str_trim_copy(str);
-        setVarString("__result", trimmed);
-        free(trimmed);
-        return (double)strlen(trimmed);
-    }
-    
-    // ─── HANDLE KittyFileExists() ─────────────────────────────
-    if (t.type == TOKEN_KITTY_FILE_EXISTS) {
-        Token lparen = scanToken();
-        if (lparen.type != TOKEN_LPAREN) {
-            setErrorF("KittyFileExists expects '('", lparen.line, lparen.col);
-            return 0;
-        }
-        
-        Token pathTok = scanToken();
-        if (pathTok.type != TOKEN_STRING && pathTok.type != TOKEN_IDENTIFIER) {
-            setErrorF("KittyFileExists expects string or variable", pathTok.line, pathTok.col);
-            return 0;
-        }
-        
-        char path[4096];
-        if (pathTok.type == TOKEN_STRING) {
-            snprintf(path, pathTok.length - 1, "%s", pathTok.start + 1);
-        } else {
-            char name[64];
-            snprintf(name, pathTok.length + 1, "%s", pathTok.start);
-            char* val = getVarString(name);
-            snprintf(path, sizeof(path), "%s", val);
-        }
-        
-        Token rparen = scanToken();
-        if (rparen.type != TOKEN_RPAREN) {
-            setErrorF("KittyFileExists expects ')'", rparen.line, rparen.col);
-            return 0;
-        }
-        
-        FILE* f = fopen(path, "r");
-        int exists = f ? 1 : 0;
-        if (f) fclose(f);
-        setVar("__result", exists ? 1.0 : 0.0);
-        return exists ? 1.0 : 0.0;
-    }
-    
-    // ─── HANDLE IDENTIFIER (variable or function call) ────────
-    if (t.type == TOKEN_IDENTIFIER) {
-        char name[64];
-        snprintf(name, t.length + 1, "%s", t.start);
-        if (peekToken().type == TOKEN_LPAREN) {
-            scanToken(); 
-            int argCount = 0;
-            double args[10];
-            while (peekToken().type != TOKEN_RPAREN && peekToken().type != TOKEN_EOF) {
-                if (argCount > 0 && peekToken().type == TOKEN_COMMA) scanToken();
-                args[argCount++] = parse_expression();
-            }
-            if (peekToken().type == TOKEN_RPAREN) scanToken();
-            return callFunction(name);
-        }
-        return getVar(name);
-    }
-    
-    if (t.type == TOKEN_STRING) {
-        char str[256];
-        snprintf(str, t.length - 1, "%s", t.start + 1);
-        printf("%s\n", str);
-        return 0;
-    }
-    
-    if (t.type == TOKEN_LPAREN) {
-        double val = parse_expression();
-        if (peekToken().type == TOKEN_RPAREN) {
-            scanToken();
-            return val;
-        } else {
-            Token next = peekToken();
-            char* text = getTokenText(next);
-            setErrorF("Expected ')' after expression, got '%s' (type: %s)", 
-                      text, tokenTypeToString(next.type));
-            return 0;
-        }
-    }
-    
-    if (t.type == TOKEN_NOT) {
-        Token next = peekToken();
-        if (next.type == TOKEN_EOF) {
-            setErrorF("Expected expression after 'Not'");
-            return 0;
-        }
-        return !parse_primary();
-    }
-    
-    char* text = getTokenText(t);
-    setErrorF("Expected number, identifier, string, or '(' got '%s' (type: %s)", 
-              text, tokenTypeToString(t.type));
-    return 0;
-}
-
-double parse_term() {
-    double value = parse_primary();
-    Token op = peekToken();
-    while (op.type == TOKEN_STAR || op.type == TOKEN_SLASH || op.type == TOKEN_MODULO) {
-        scanToken();
-        double right = parse_primary();
-        switch (op.type) {
-            case TOKEN_STAR: value *= right; break;
-            case TOKEN_SLASH:
-                if (right == 0) {
-                    setErrorF("Division by zero at line %d", op.line);
-                    return 0;
-                }
-                value /= right;
-                break;
-            case TOKEN_MODULO:
-                if (right == 0) {
-                    setErrorF("Modulo by zero at line %d", op.line);
-                    return 0;
-                }
-                value = (double)((int)value % (int)right);
-                break;
-            default: break;
-        }
-        op = peekToken();
-    }
-    return value;
-}
-
-double parse_expression() {
-    double value = parse_term();
-    Token op = peekToken();
-    while (op.type == TOKEN_PLUS || op.type == TOKEN_MINUS) {
-        scanToken();
-        double right = parse_term();
-        if (op.type == TOKEN_PLUS) value += right;
-        else value -= right;
-        op = peekToken();
-    }
-    return value;
-}
-
-int parse_comparison() {
-    double left = parse_expression();
-    Token op = scanToken();
-    if (op.type == TOKEN_EQ || op.type == TOKEN_NE || op.type == TOKEN_GT ||
-        op.type == TOKEN_LT || op.type == TOKEN_GE || op.type == TOKEN_LE) {
-        double right = parse_expression();
-        switch (op.type) {
-            case TOKEN_EQ: return left == right;
-            case TOKEN_NE: return left != right;
-            case TOKEN_GT: return left > right;
-            case TOKEN_LT: return left < right;
-            case TOKEN_GE: return left >= right;
-            case TOKEN_LE: return left <= right;
-            default: return 0;
-        }
-    }
-    char* text = getTokenText(op);
-    setErrorF("Expected comparison operator (==, !=, >, <, >=, <=), got '%s' (type: %s)", 
-              text, tokenTypeToString(op.type));
-    return 0;
-}
-
-int parse_logic_expression() {
-    int left = parse_comparison();
-    Token op = peekToken();
-    while (op.type == TOKEN_AND || op.type == TOKEN_OR) {
-        scanToken();
-        int right = parse_comparison();
-        if (op.type == TOKEN_AND) left = left && right;
-        else left = left || right;
-        op = peekToken();
-    }
-    return left;
-}
-
-void parse_block() {
-    Token brace = scanToken();
-    if (brace.type != TOKEN_LBRACE) {
-        char* text = getTokenText(brace);
-        setErrorF("Expected '{' at start of block, got '%s' (type: %s)", 
-                  text, tokenTypeToString(brace.type));
-        return;
-    }
-    while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF) {
-        parse_statement();
-        if (lynx_error) break;
-    }
-    if (peekToken().type == TOKEN_RBRACE) {
-        scanToken();
-    } else {
-        setErrorF("Expected '}' at end of block, got EOF");
-    }
-}
-
-void parse_for_loop() {
-    Token varToken = scanToken();
-    if (varToken.type != TOKEN_IDENTIFIER) {
-        char* text = getTokenText(varToken);
-        setErrorF("For loop expects variable name, got '%s' (type: %s)", 
-                  text, tokenTypeToString(varToken.type));
-        return;
-    }
-    char varName[64];
-    snprintf(varName, varToken.length + 1, "%s", varToken.start);
-    
-    Token eq = scanToken();
-    if (eq.type != TOKEN_EQUAL) {
-        char* text = getTokenText(eq);
-        setErrorF("For loop expects '=' after variable, got '%s' (type: %s)", 
-                  text, tokenTypeToString(eq.type));
-        return;
-    }
-    double start = parse_expression();
-    setVar(varName, start);
-    
-    Token toToken = scanToken();
-    if (toToken.type != TOKEN_IDENTIFIER || strncmp(toToken.start, "To", 2) != 0) {
-        char* text = getTokenText(toToken);
-        setErrorF("For loop expects 'To' after start value, got '%s' (type: %s)", 
-                  text, tokenTypeToString(toToken.type));
-        return;
-    }
-    double end = parse_expression();
-    
-    Token lbrace = scanToken();
-    if (lbrace.type != TOKEN_LBRACE) {
-        char* text = getTokenText(lbrace);
-        setErrorF("For loop expects '{' after range, got '%s' (type: %s)", 
-                  text, tokenTypeToString(lbrace.type));
-        return;
-    }
-    
-    Scanner loopStart = scanner;
-    for (double i = start; i <= end; i++) {
-        setVar(varName, i);
-        scanner = loopStart;
-        while (peekToken().type != TOKEN_RBRACE && peekToken().type != TOKEN_EOF) {
-            parse_statement();
-            if (lynx_error) break;
-        }
-        if (lynx_error) break;
-    }
-    scanToken();
-}
-
-void parse_while_loop() {
-    Scanner condStart = scanner;
-    int condition = parse_logic_expression();
-    if (lynx_error) return;
-    
-    Token lbrace = scanToken();
-    if (lbrace.type != TOKEN_LBRACE) {
-        char* text = getTokenText(lbrace);
-        setErrorF("While loop expects '{' after condition, got '%s' (type: %s)", 
-                  text, tokenTypeToString(lbrace.type));
-        return;
-    }
-    
-    Scanner bodyStart = scanner;
-    int braceDepth = 1;
-    while (braceDepth > 0 && peekToken().type != TOKEN_EOF) {
-        Token t = scanToken();
-        if (t.type == TOKEN_LBRACE) braceDepth++;
-        if (t.type == TOKEN_RBRACE) braceDepth--;
-    }
-    Scanner bodyEnd = scanner;
-    
-    int bodyLen = (int)(bodyEnd.current - bodyStart.start);
-    char* body = malloc(bodyLen + 1);
-    strncpy(body, bodyStart.start, bodyLen);
-    body[bodyLen] = '\0';
-    
-    while (condition && !lynx_error) {
-        initScanner(body);
-        while (peekToken().type != TOKEN_EOF) {
-            parse_statement();
-            if (lynx_error) break;
-        }
-        if (lynx_error) break;
-        initScanner(condStart.start);
-        condition = parse_logic_expression();
-    }
-    free(body);
-}
-
-void parse_function_def() {
-    Token nameToken = scanToken();
-    if (nameToken.type != TOKEN_IDENTIFIER) {
-        char* text = getTokenText(nameToken);
-        setErrorF("Function definition expects function name, got '%s' (type: %s)", 
-                  text, tokenTypeToString(nameToken.type));
-        return;
-    }
-    char funcName[64];
-    snprintf(funcName, nameToken.length + 1, "%s", nameToken.start);
-    
-    Token lparen = scanToken();
-    if (lparen.type != TOKEN_LPAREN) {
-        char* text = getTokenText(lparen);
-        setErrorF("Function definition expects '(' after function name, got '%s' (type: %s)", 
-                  text, tokenTypeToString(lparen.type));
-        return;
-    }
-    
-    char params[10][64];
-    int paramCount = 0;
-    while (peekToken().type != TOKEN_RPAREN && peekToken().type != TOKEN_EOF) {
-        Token param = scanToken();
-        if (param.type == TOKEN_IDENTIFIER) {
-            snprintf(params[paramCount], param.length + 1, "%s", param.start);
-            paramCount++;
-        } else {
-            char* text = getTokenText(param);
-            setErrorF("Function parameter must be identifier, got '%s' (type: %s)", 
-                      text, tokenTypeToString(param.type));
-            return;
-        }
-        if (peekToken().type == TOKEN_COMMA) scanToken();
-    }
-    if (peekToken().type == TOKEN_RPAREN) {
-        scanToken();
-    } else {
-        setErrorF("Function definition expects ')' after parameters");
-        return;
-    }
-    
-    Scanner bodyStart = scanner;
-    Token brace = scanToken();
-    if (brace.type != TOKEN_LBRACE) {
-        char* text = getTokenText(brace);
-        setErrorF("Function definition expects '{' after parameters, got '%s' (type: %s)", 
-                  text, tokenTypeToString(brace.type));
-        return;
-    }
-    
-    int braceCount = 1;
-    while (braceCount > 0 && peekToken().type != TOKEN_EOF) {
-        Token t = scanToken();
-        if (t.type == TOKEN_LBRACE) braceCount++;
-        if (t.type == TOKEN_RBRACE) braceCount--;
-    }
-    int bodyLen = (int)(scanner.current - bodyStart.current);
-    char* body = malloc(bodyLen + 1);
-    strncpy(body, bodyStart.current, bodyLen);
-    body[bodyLen] = '\0';
-    defineFunction(funcName, (const char**)params, paramCount, body);
-}
-
-// ─── FORMAT / CHECK ──────────────────────────────────────────────
-void format_file(const char* path) {
-    FILE* f = fopen(path, "r");
-    if (!f) {
-        setErrorF("Cannot open file '%s' for formatting", path);
-        printf("%s\n", lynx_error);
-        clearError();
-        return;
-    }
-
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    rewind(f);
-    char* src = malloc(size + 1);
-    fread(src, 1, size, f);
-    src[size] = '\0';
-    fclose(f);
-
-    char* result = malloc(size * 2 + 1);
-    result[0] = '\0';
-    int indent = 0;
-    int line_start = 1;
-
-    for (int i = 0; src[i]; i++) {
-        char c = src[i];
+static void skip_whitespace() {
+    while (!isAtEnd()) {
+        char c = peek();
         if (c == '\n') {
-            strcat(result, "\n");
-            line_start = 1;
-        } else if (line_start) {
-            for (int j = 0; j < indent * 2; j++) strcat(result, " ");
-            line_start = 0;
-            for (int j = i; src[j] && src[j] != '\n'; j++) {
-                if (src[j] == '{') indent++;
-                else if (src[j] == '}') indent--;
+            scanner.line++;
+            scanner.col = 1;
+            advance();
+        } else if (c == '\r') {
+            advance();
+            if (peek() == '\n') {
+                scanner.line++;
+                scanner.col = 1;
+                advance();
             }
-            strcat(result, &src[i]);
-            while (src[i] && src[i] != '\n') i++;
-            if (src[i]) i--;
-        }
-    }
-    if (strlen(result) > 0 && result[strlen(result)-1] != '\n')
-        strcat(result, "\n");
-
-    f = fopen(path, "w");
-    if (f) {
-        fwrite(result, 1, strlen(result), f);
-        fclose(f);
-        printf("🐾 Formatted %s\n", path);
-    } else {
-        setErrorF("Cannot write to file '%s'", path);
-        printf("%s\n", lynx_error);
-        clearError();
-    }
-
-    free(src);
-    free(result);
-}
-
-void check_file(const char* path) {
-    FILE* f = fopen(path, "r");
-    if (!f) {
-        setErrorF("Cannot open file '%s' for checking", path);
-        printf("%s\n", lynx_error);
-        clearError();
-        return;
-    }
-
-    fseek(f, 0, SEEK_END);
-    long size = ftell(f);
-    rewind(f);
-    char* src = malloc(size + 1);
-    fread(src, 1, size, f);
-    src[size] = '\0';
-    fclose(f);
-
-    char* old_error = lynx_error ? strdup(lynx_error) : NULL;
-    clearError();
-
-    initScanner(src);
-    while (peekToken().type != TOKEN_EOF) {
-        parse_statement();
-        if (lynx_error) break;
-    }
-
-    if (lynx_error) {
-        printf("🐾 Error: %s\n", lynx_error);
-        clearError();
-        free(src);
-        return;
-    } else {
-        printf("✅ No errors found in %s\n", path);
-    }
-
-    if (old_error) {
-        lynx_error = old_error;
-    }
-
-    free(src);
-}
-
-// ─── PARSE STATEMENT ──────────────────────────────────────────
-void parse_statement() {
-    Token t = scanToken();
-
-    if (t.type == TOKEN_IF) {
-        int cond = parse_logic_expression();
-        if (lynx_error) return;
-        
-        if (cond) {
-            parse_block();
+        } else if (isspace(c)) {
+            advance();
         } else {
-            Scanner save = scanner;
-            parse_block();
-            scanner = save;
-            if (peekToken().type == TOKEN_ELSE) {
-                scanToken();
-                if (peekToken().type == TOKEN_IF) {
-                    parse_statement();
-                } else {
-                    parse_block();
-                }
-            }
+            break;
         }
-        return;
+    }
+}
+
+Token scanToken() {
+    skip_whitespace();
+
+    if (peek() == '#') {
+        while (peek() != '\n' && !isAtEnd()) advance();
+        if (isAtEnd()) return makeToken(TOKEN_EOF);
+        return scanToken();
     }
 
-    if (t.type == TOKEN_FOR) { parse_for_loop(); return; }
-    if (t.type == TOKEN_WHILE) { parse_while_loop(); return; }
-    if (t.type == TOKEN_FUNC) { parse_function_def(); return; }
-    
-    // ─── ADD THIS ──────────────────────────────────────────────
-    if (t.type == TOKEN_TRY) {
-        extern void parse_try_catch(void);
-        parse_try_catch();
-        return;
-    }
-    // ──────────────────────────────────────────────────────────
-
-    extern int pawcom_parse_statement(Token t);
-    if (pawcom_parse_statement(t)) {
-        return; // Handled by pawcom
+    if (peek() == '/' && peekNext() == '/') {
+        advance(); advance();
+        while (peek() != '\n' && !isAtEnd()) advance();
+        if (isAtEnd()) return makeToken(TOKEN_EOF);
+        return scanToken();
     }
 
-    if (t.type == TOKEN_HELP || t.type == TOKEN_EOF) return;
-    
-    char* text = getTokenText(t);
-    const char* typeName = tokenTypeToString(t.type);
-    setErrorF("Unexpected '%s' (type: %s) at line %d. Expected a command like Roar, Set, If, Func, etc.",
-              text, typeName, t.line);
-    printf("%s\n", lynx_error);
-    clearError();
+    scanner.start = scanner.current;
+    if (isAtEnd()) return makeToken(TOKEN_EOF);
+
+    char c = advance();
+
+    if (isalpha(c) || c == '_') return identifier();
+    if (isdigit(c)) return number();
+
+    switch (c) {
+        case '+':
+            if (peek() == '+') { advance(); return makeToken(TOKEN_INCREMENT); }
+            return makeToken(TOKEN_PLUS);
+        case '-':
+            if (peek() == '-') { advance(); return makeToken(TOKEN_DECREMENT); }
+            return makeToken(TOKEN_MINUS);
+        case '*': return makeToken(TOKEN_STAR);
+        case '/': return makeToken(TOKEN_SLASH);
+        case '%': return makeToken(TOKEN_MODULO);
+        case '{': return makeToken(TOKEN_LBRACE);
+        case '}': return makeToken(TOKEN_RBRACE);
+        case '(': return makeToken(TOKEN_LPAREN);
+        case ')': return makeToken(TOKEN_RPAREN);
+        case '[': return makeToken(TOKEN_LBRACKET);
+        case ']': return makeToken(TOKEN_RBRACKET);
+        case ',': return makeToken(TOKEN_COMMA);
+        case ':': return makeToken(TOKEN_COLON);
+        case '=':
+            if (peek() == '=') { advance(); return makeToken(TOKEN_EQ); }
+            return makeToken(TOKEN_EQUAL);
+        case '!':
+            if (peek() == '=') { advance(); return makeToken(TOKEN_NE); }
+            return makeToken(TOKEN_NOT);
+        case '>':
+            if (peek() == '=') { advance(); return makeToken(TOKEN_GE); }
+            return makeToken(TOKEN_GT);
+        case '<':
+            if (peek() == '=') { advance(); return makeToken(TOKEN_LE); }
+            return makeToken(TOKEN_LT);
+        case '"': {
+            while (peek() != '"' && !isAtEnd()) {
+                if (peek() == '\n') {
+                    scanner.line++;
+                    scanner.col = 1;
+                }
+                advance();
+            }
+            if (isAtEnd()) {
+                Token t = makeToken(TOKEN_ERROR);
+                setErrorF("Unterminated string literal", t.line, t.col);
+                return t;
+            }
+            advance();
+            return makeToken(TOKEN_STRING);
+        }
+    }
+
+    Token t = makeToken(TOKEN_ERROR);
+    char msg[256];
+    snprintf(msg, sizeof(msg), "Unexpected character '%c'", c);
+    setErrorF(msg, t.line, t.col);
+    return t;
 }
