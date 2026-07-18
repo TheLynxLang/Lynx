@@ -58,8 +58,6 @@ void setErrorF(const char* format, ...) {
     setError(buffer, t.line, t.col);
 }
 
-// getError() is defined in memory.c - do not define here
-
 // ─── PARSING ──────────────────────────────────────────────────────
 
 double parse_primary() {
@@ -495,12 +493,13 @@ void parse_statement() {
     if (t.type == TOKEN_WHILE) { parse_while_loop(); return; }
     if (t.type == TOKEN_FUNC) { parse_function_def(); return; }
 
-    extern void pawcom_parse_statement(Token t);
-    pawcom_parse_statement(t);
+    extern int pawcom_parse_statement(Token t);
+    if (pawcom_parse_statement(t)) {
+        return; // Handled by pawcom
+    }
 
     if (t.type == TOKEN_HELP || t.type == TOKEN_EOF) return;
     
-    // If we get here, nothing handled it
     char* text = getTokenText(t);
     const char* typeName = tokenTypeToString(t.type);
     setErrorF("Unexpected '%s' (type: %s) at line %d. Expected a command like Roar, Set, If, Func, etc.",
