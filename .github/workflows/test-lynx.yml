@@ -78,11 +78,11 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential gcc make gdb valgrind
+          sudo apt-get install -y build-essential gcc make gdb valgrind curl tar
 
       - name: Build Lynx with debug symbols
         run: |
-          gcc -g -O0 -Wall -Wextra -Wpedantic main.c scanner.c parser.c memory.c pawcom.c libloader.c -o lynx -lX11 -ldl -lm
+          gcc -g -O0 -Wall -Wextra -Wpedantic -D_DEFAULT_SOURCE main.c scanner.c parser.c memory.c pawcom.c libloader.c -o lynx -ldl -lm
           if [ $? -ne 0 ]; then exit 1; fi
 
       - name: Enable core dumps
@@ -105,16 +105,21 @@ jobs:
           cp -r installer/files/scripts build-deb/usr/bin/ 2>/dev/null || true
           cat > build-deb/DEBIAN/control << EOF
           Package: lynx-lang
-          Version: 1.0.0
+          Version: 1.4.0
+          Section: devel
+          Priority: optional
           Maintainer: justdev-chris
           Architecture: amd64
+          Depends: libc6, curl
           Description: Lynx programming language
+           Lynx is a lightweight, animal-themed scripting language with a built-in
+           package manager, file I/O, and native DLL support.
           EOF
-          dpkg-deb --build build-deb lynx-lang.deb
+          dpkg-deb --build build-deb lynx-lang_1.4.0_amd64.deb
 
       - name: Install .deb package
         run: |
-          sudo dpkg -i lynx-lang.deb || sudo apt-get install -f -y
+          sudo dpkg -i lynx-lang_1.4.0_amd64.deb || sudo apt-get install -f -y
 
       - name: Test Lynx commands with GDB on crash
         run: |
@@ -146,6 +151,9 @@ jobs:
           lynx fmt src/main.lnx
           echo "=== CHECK ==="
           lynx check src/main.lnx
+          echo "=== DEBUG TOGGLE ==="
+          lynx debug
+          lynx debug
 
       - name: Upload debug logs
         if: always()
@@ -163,5 +171,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lynx-installer-linux
-          path: lynx-lang.deb
+          path: lynx-lang_*.deb
           if-no-files-found: warn
