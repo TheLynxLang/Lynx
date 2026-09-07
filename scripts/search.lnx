@@ -6,9 +6,9 @@ If tempDir == "" {
 }
 Set jsonFile = tempDir + "/packages.json"
 
-Run "curl -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+Run "curl -L -o " + jsonFile + " https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
 
-KittyReadFile "packages.json"
+KittyReadFile jsonFile
 Set json = __file_content
 
 KittyParseJSON json
@@ -17,15 +17,15 @@ KittyReadFile __json_file
 Set content = __file_content
 
 KittySplitString content "\n"
-Set lines = __result
 Set lines_count = __result_count
-
-# First line is count
-Set count = lines[0]
 Set found = 0
 
+# First line is count - skip it
+Set count = __result[0]
+
 For i = 1 To count {
-    Set line = lines[i]
+    Set line = __result[i]
+    
     KittySplitString line "|"
     Set key = __result[0]
     Set value = __result[1]
@@ -44,5 +44,5 @@ If found > 0 {
     Roar "❌ No results found for '" + __term + "'"
 }
 
-Run "rm -f packages.json"
+Run "rm -f " + jsonFile
 Run "rm -f " + __json_file
