@@ -251,11 +251,15 @@ static Value parse_primary() {
     if (t.type == TOKEN_IDENTIFIER) {
         char varName[64];
         safe_token_to_string(t, varName, sizeof(varName));
+        printf("🐾 DEBUG parse_primary: identifier '%s'\n", varName);
         Variable* v = findVar(varName);
         if (v) {
+            printf("🐾 DEBUG parse_primary: found '%s', type=%d, numValue=%f\n", varName, v->type, v->value.numValue);
             if (v->type == VAR_NUMBER) {
                 result.type = VAR_NUMBER;
                 result.value.numValue = v->value.numValue;
+                printf("🐾 DEBUG parse_primary: returning number %f for '%s'\n", result.value.numValue, varName);
+                return result;
             } else if (v->type == VAR_STRING && v->value.strValue) {
                 // COPY the string - don't share ownership
                 result.type = VAR_STRING;
@@ -267,6 +271,8 @@ static Value parse_primary() {
                     result.value.numValue = 0;
                 }
             }
+        } else {
+            printf("🐾 DEBUG parse_primary: '%s' NOT found by findVar\n", varName);
         }
         return result;
     }
@@ -636,7 +642,6 @@ static Value parse_multiplication() {
     return result;
 }
 
-// FIXED: Proper string concatenation with memory management
 static Value parse_addition() {
     Value result = parse_multiplication();
     if (lynx_error) return result;
@@ -644,12 +649,7 @@ static Value parse_addition() {
     while (peekToken().type == TOKEN_PLUS || peekToken().type == TOKEN_MINUS) {
         Token op = scanToken();
         Value right = parse_multiplication();
-        if (lynx_error) {
-            if (right.type == VAR_STRING && right.value.strValue) {
-                free(right.value.strValue);
-            }
-            return result;
-        }
+        if (lynx_error) return result;
         
         if (op.type == TOKEN_PLUS) {
             // String concatenation
