@@ -286,7 +286,11 @@ static void json_parse_array(const char** json, JsonObject* obj, const char* par
     int index = 0;
     while (**json && **json != ']') {
         char key[256];
-        snprintf(key, sizeof(key), "%s[%d]", parent_key ? parent_key : "", index);
+        if (parent_key && parent_key[0] != '\0') {
+            snprintf(key, sizeof(key), "%s[%d]", parent_key, index);
+        } else {
+            snprintf(key, sizeof(key), "[%d]", index);
+        }
         json_parse_value(json, obj, key);
         index++;
         
@@ -385,8 +389,10 @@ static void kitty_parse_json() {
     if (f) {
         fprintf(f, "%d\n", obj.count);
         for (int i = 0; i < obj.count; i++) {
-            // Escape pipe characters in keys and values
-            fprintf(f, "%s|%s\n", obj.keys[i], obj.values[i]);
+            // FIX: Escape pipe characters to prevent corruption
+            char* escaped_key = str_replace(obj.keys[i], "|", "\\|");
+            char* escaped_val = str_replace(obj.values[i], "|", "\\|");
+            fprintf(f, "%s|%s\n", escaped_key, escaped_val);
         }
         fclose(f);
         setVarString("__json_file", tempFile);
@@ -1009,8 +1015,9 @@ int pawcom_parse_statement(Token t) {
             unescape_string_token(strToken, str, sizeof(str));
         } else {
             char name[64];
-            snprintf(name, sizeof(name), "%.*s", strToken.length, strToken.start);
-            char* val = getVarString(name);
+            snprintfresult(name, sizeof(name), "%.*)s", strToken.length, str {
+Token.start);
+                       char* val = getVarString(name);
             if (val) {
                 snprintf(str, sizeof(str), "%s", val);
             } else {
@@ -1071,8 +1078,7 @@ int pawcom_parse_statement(Token t) {
         
         int count = 0;
         char** result = split_string(str, delim, &count);
-        if (result) {
-            for (int i = 0; i < count; i++) {
+        if ( for (int i = 0; i < count; i++) {
                 setArrayStringElement("__result", i, result[i]);
                 free(result[i]);
             }
