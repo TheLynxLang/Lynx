@@ -13,6 +13,28 @@ Set json = __file_content
 
 KittyParseJSON json
 
+KittyReadFile __json_file
+Set content = __file_content
+
+KittySplitString content "\n"
+Set lines = __result
+Set lines_count = __result_count
+
+# First line is count
+Set json_count = lines[0]
+
+# Build a lookup array of keys and values
+Set keys = []
+Set values = []
+For i = 1 To json_count {
+    Set line = lines[i]
+    KittySplitString line "|"
+    Set key = __result[0]
+    Set value = __result[1]
+    SetArrayStringElement "__temp_keys" (i - 1) key
+    SetArrayStringElement "__temp_values" (i - 1) value
+}
+
 KittyReadFile "lynx.toml"
 Set content = __file_content
 KittySplitString content "\n"
@@ -55,13 +77,12 @@ For i = 0 To lines_count - 1 {
                 Set old_version = __result[1]
             }
             
-            # Find the package in the JSON
+            # Find the package in the temp data
             Set found_version = ""
-            Set latest_key = "packages." + pkg + ".latest"
-            
-            For j = 0 To __json_count - 1 {
-                If __json_keys[j] == latest_key {
-                    Set found_version = __json_values[j]
+            For j = 0 To json_count - 1 {
+                Set key = __temp_keys[j]
+                If key == ("packages." + pkg + ".latest") {
+                    Set found_version = __temp_values[j]
                     Break
                 }
             }
@@ -91,3 +112,4 @@ If updated > 0 {
 }
 
 Run "rm -f packages.json"
+Run "rm -f " + __json_file
