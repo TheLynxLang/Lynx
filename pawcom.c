@@ -515,7 +515,8 @@ static void kitty_port(const char* name) {
     }
     
     char lnxPath[LYNX_MAX_PATH];
-    snprintf(lnxPath, sizeof(lnxPath), "libs/%s/main.lnx", name);
+    // Look for src/main.lnx - standard package structure
+    snprintf(lnxPath, sizeof(lnxPath), "libs/%s/src/main.lnx", name);
 
     int alreadyLoaded = 0;
     for (int i = 0; i < loaded_pkg_count; i++) {
@@ -556,6 +557,39 @@ static void kitty_port(const char* name) {
         return;
     }
 
+    // Fallback: check root main.lnx
+    snprintf(lnxPath, sizeof(lnxPath), "libs/%s/main.lnx", name);
+    f = fopen(lnxPath, "r");
+    if (f) {
+        fclose(f);
+        if (alreadyLoaded) return;
+
+        Variable* savedDen = malloc(varCount * sizeof(Variable));
+        if (!savedDen) {
+            setErrorF("Out of memory in KittyPort");
+            return;
+        }
+        
+        int savedCount = varCount;
+        for (int i = 0; i < varCount; i++) {
+            savedDen[i] = den[i];
+        }
+
+        runFile(lnxPath, 0, NULL);
+
+        for (int i = 0; i < varCount; i++) {
+            if (den[i].value.strValue) free(den[i].value.strValue);
+        }
+        for (int i = 0; i < savedCount; i++) den[i] = savedDen[i];
+        varCount = savedCount;
+        free(savedDen);
+
+        if (loaded_pkg_count < 64) {
+            loaded_packages[loaded_pkg_count++] = strdup(name);
+        }
+        return;
+    }
+
     char dllPath[LYNX_MAX_PATH];
     snprintf(dllPath, sizeof(dllPath), "lib/%s.dll", name);
     f = fopen(dllPath, "r");
@@ -565,7 +599,8 @@ static void kitty_port(const char* name) {
         return;
     }
 
-    setErrorF("KittyPort: Package '%s' not found in libs/ or lib/", name);
+    setErrorF("KittyPort: Package '%s' not found in libs/%s/src/main.lnx, libs/%s/main.lnx, or lib/%s.dll", 
+              name, name, name, name);
     printf("%s\n", lynx_error);
     clearError();
 }
