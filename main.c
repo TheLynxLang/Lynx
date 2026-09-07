@@ -32,6 +32,52 @@ static void create_dir(const char* path) {
     #endif
 }
 
+// ─── RECURSIVE MKDIR ──────────────────────────────────────────
+static void mkdir_p(const char* path) {
+    if (!path || strlen(path) == 0) return;
+    
+    char tmp[LYNX_MAX_PATH];
+    char* p = NULL;
+    size_t len;
+
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    len = strlen(tmp);
+    
+    // Remove trailing slash
+    if (len > 0 && (tmp[len - 1] == '/' || tmp[len - 1] == '\\')) {
+        tmp[len - 1] = '\0';
+    }
+    
+    #ifdef _WIN32
+    // Handle drive letters (C:)
+    if (len >= 2 && tmp[1] == ':') {
+        p = tmp + 2;
+    } else {
+        p = tmp + 1;
+    }
+    #else
+    p = tmp + 1;
+    #endif
+    
+    for (; *p; p++) {
+        if (*p == '/' || *p == '\\') {
+            *p = '\0';
+            #ifdef _WIN32
+            _mkdir(tmp);
+            #else
+            mkdir(tmp, 0777);
+            #endif
+            *p = '/';
+        }
+    }
+    
+    #ifdef _WIN32
+    _mkdir(tmp);
+    #else
+    mkdir(tmp, 0777);
+    #endif
+}
+
 void show_help() {
     printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
     printf("\n  init               - Create new Lynx project\n");
@@ -256,6 +302,9 @@ static void pkg_install() {
         return;
     }
     
+    // Create libs directory
+    create_dir("libs");
+    
     // Parse each line in dependencies
     char* line = strtok(deps + 14, "\n");
     int installed = 0;
@@ -267,8 +316,10 @@ static void pkg_install() {
             if (sscanf(line, "%[^= ] = \"%[^\"]\"", pkg, version) == 2) {
                 printf("📦 Installing %s (%s)...\n", pkg, version);
                 
-                // Create libs directory if needed
-                create_dir("libs");
+                // Create package directory
+                char pkgDir[LYNX_MAX_PATH];
+                snprintf(pkgDir, sizeof(pkgDir), "libs/%s", pkg);
+                create_dir(pkgDir);
                 
                 // Download package
                 char url[512];
@@ -281,7 +332,7 @@ static void pkg_install() {
                 int result = system(cmd);
                 if (result == 0) {
                     // Extract
-                    snprintf(cmd, sizeof(cmd), "mkdir -p libs/%s && tar -xzf %s -C libs/%s/ && rm -f %s", pkg, dest, pkg, dest);
+                    snprintf(cmd, sizeof(cmd), "tar -xzf %s -C libs/%s/ && rm -f %s", dest, pkg, dest);
                     system(cmd);
                     printf("✅ Installed %s\n", pkg);
                     installed++;
@@ -319,22 +370,44 @@ static void pkg_search(const char* term) {
         return;
     }
     
-    // Simple search - look for term in the file
-    char* found = strstr(content, term);
-    if (found) {
+    // Find packages section
+    char* packages = strstr(content, "\"packages\"");
+    if (packages) {
+        // Find each package name
+        char* p = packages;
+        int found = 0;
         printf("📦 Found packages matching '%s':\n", term);
-        // Parse and display results
-        char* pkg_start = strstr(content, "\"");
-        if (pkg_start) {
-            pkg_start++;
-            char* pkg_end = strstr(pkg_start, "\"");
-            if (pkg_end) {
-                int len = pkg_end - pkg_start;
-                printf("  %.*s\n", len, pkg_start);
+        while ((p = strstr(p, "\"")) != NULL) {
+            p++;
+            char* end = strstr(p, "\"");
+            if (end) {
+                int len = end - p;
+                char pkg_name[256];
+                strncpy(pkg_name, p, len);
+                pkg_name[len] = '\0';
+                
+                // Skip common JSON keys
+                if (strcmp(pkg_name, "packages") != 0 && 
+                    strcmp(pkg_name, "description") != 0 && 
+                    strcmp(pkg_name, "versions") != 0 && 
+                    strcmp(pkg_name, "latest") != 0 &&
+                    strcmp(pkg_name, "author") != 0 && 
+                    strcmp(pkg_name, "badge") != 0) {
+                    if (strstr(pkg_name, term)) {
+                        printf("  📦 %s\n", pkg_name);
+                        found++;
+                    }
+                }
+                p = end;
             }
         }
+        if (found == 0) {
+            printf("❌ No results found for '%s'\n", term);
+        } else {
+            printf("✅ Found %d package(s)\n", found);
+        }
     } else {
-        printf("❌ No results found for '%s'\n", term);
+        printf("❌ No packages found in registry\n");
     }
     
     free(content);
