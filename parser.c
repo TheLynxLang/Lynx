@@ -1143,7 +1143,7 @@ void format_file(const char* path) {
     fclose(f);
     
     if (bytesRead != (size_t)size) {
-        fprintf(stderr, "🐾 ERROR: Could not read entire file\n");
+        fprintf(stderr, "🐾 ERROR: Could not read entire file (read %zu, expected %ld)\n", bytesRead, size);
         free(src);
         return;
     }
@@ -1244,7 +1244,7 @@ void check_file(const char* path) {
     fclose(f);
     
     if (bytesRead != (size_t)size) {
-        fprintf(stderr, "🐾 ERROR: Could not read entire file\n");
+        fprintf(stderr, "🐾 ERROR: Could not read entire file (read %zu, expected %ld)\n", bytesRead, size);
         free(src);
         return;
     }
