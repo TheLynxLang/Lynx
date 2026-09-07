@@ -194,7 +194,6 @@ static void json_object_add(JsonObject* obj, const char* key, const char* value)
     obj->keys[obj->count] = strdup(key);
     obj->values[obj->count] = strdup(value);
     obj->count++;
-    printf("🐾 DEBUG JSON ADD: key='%s', value='%s', count=%d\n", key, value, obj->count);
 }
 
 static void json_object_free(JsonObject* obj) {
@@ -213,21 +212,22 @@ static void json_object_free(JsonObject* obj) {
 // Forward declaration
 static void json_parse_value(const char** json, JsonObject* obj, const char* parent_key);
 
+// FIXED: Properly strips quotes from JSON strings
 static char* json_parse_string(const char** json) {
     const char* start = *json;
-    // Skip opening quote
     if (**json == '"') (*json)++;
+    const char* str_start = *json;
     while (**json && **json != '"') {
-        if (**json == '\\') (*json)++; // skip escape char
+        if (**json == '\\') (*json)++;
         (*json)++;
     }
-    if (**json == '"') (*json)++; // skip closing quote
+    const char* str_end = *json;
+    if (**json == '"') (*json)++;
     
-    int len = (int)(*json - start - 1);
-    if (len < 0) len = 0;
+    int len = (int)(str_end - str_start);
     char* result = malloc(len + 1);
     if (result) {
-        strncpy(result, start + 1, len);
+        strncpy(result, str_start, len);
         result[len] = '\0';
     }
     return result;
@@ -242,7 +242,6 @@ static void json_parse_object(const char** json, JsonObject* obj, const char* pa
     while (**json && **json != '}') {
         // Parse key
         char* key = json_parse_string(json);
-        printf("🐾 DEBUG JSON: found key '%s'\n", key);
         
         // Skip whitespace
         while (**json && isspace(**json)) (*json)++;
@@ -365,20 +364,15 @@ static void kitty_parse_json() {
         }
     }
     
-    printf("🐾 DEBUG JSON: Parsing JSON string:\n%s\n", jsonStr);
-    
     JsonObject obj;
     json_object_init(&obj);
     
     const char* json_ptr = jsonStr;
     json_parse_value(&json_ptr, &obj, "");
     
-    printf("🐾 DEBUG JSON: obj.count = %d\n", obj.count);
-    
     // Store results in variables
     setVar("__json_count", (double)obj.count);
     for (int i = 0; i < obj.count; i++) {
-        printf("🐾 DEBUG JSON: key[%d] = '%s', value[%d] = '%s'\n", i, obj.keys[i], i, obj.values[i]);
         setArrayStringElement("__json_keys", i, obj.keys[i]);
         setArrayStringElement("__json_values", i, obj.values[i]);
     }
