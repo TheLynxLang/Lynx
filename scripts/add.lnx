@@ -4,7 +4,7 @@ Set pkgName = __pkg
 Set version = "latest"
 
 KittyReadFile "lynx.toml"
-If __result == 0 {
+If __result < 1 {
     Roar "⚠️ lynx.toml not found"
     Return
 }
