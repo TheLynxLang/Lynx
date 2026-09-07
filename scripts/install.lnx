@@ -19,7 +19,7 @@ If KittyFileExists("lynx.lock") {
         If __result_count >= 2 {
             Set pkg = Trim(__result[0])
             Set version = Trim(__result[1])
-            version = KittyReplaceString version "\"\""
+            version = KittyReplaceString(version, "\"", "")
 
             Roar "📦 Installing " + pkg + " (" + version + ")"
 
@@ -78,7 +78,7 @@ For i = 0 To lines_count - 1 {
         If __result_count >= 2 {
             Set pkg = Trim(__result[0])
             Set version = Trim(__result[1])
-            version = KittyReplaceString version "\"\""
+            version = KittyReplaceString(version, "\"", "")
 
             Roar "📦 Installing " + pkg + " (" + version + ")"
 
