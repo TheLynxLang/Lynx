@@ -213,9 +213,7 @@ static void json_object_free(JsonObject* obj) {
 // Forward declaration
 static void json_parse_value(const char** json, JsonObject* obj, const char* parent_key);
 
-// FIXED: Properly strips quotes from JSON strings
 static char* json_parse_string(const char** json) {
-    const char* start = *json;
     if (**json == '"') (*json)++;
     const char* str_start = *json;
     while (**json && **json != '"') {
@@ -237,23 +235,17 @@ static char* json_parse_string(const char** json) {
 static void json_parse_object(const char** json, JsonObject* obj, const char* parent_key) {
     if (**json == '{') (*json)++;
     
-    // Skip whitespace
     while (**json && isspace(**json)) (*json)++;
     
     while (**json && **json != '}') {
-        // Parse key
         char* key = json_parse_string(json);
         
-        // Skip whitespace
         while (**json && isspace(**json)) (*json)++;
         
-        // Expect ':'
         if (**json == ':') (*json)++;
         
-        // Skip whitespace
         while (**json && isspace(**json)) (*json)++;
         
-        // Parse value
         char full_key[256];
         if (parent_key && parent_key[0] != '\0') {
             snprintf(full_key, sizeof(full_key), "%s.%s", parent_key, key);
@@ -264,10 +256,8 @@ static void json_parse_object(const char** json, JsonObject* obj, const char* pa
         json_parse_value(json, obj, full_key);
         free(key);
         
-        // Skip whitespace
         while (**json && isspace(**json)) (*json)++;
         
-        // Expect ',' or '}'
         if (**json == ',') {
             (*json)++;
             while (**json && isspace(**json)) (*json)++;
@@ -280,7 +270,6 @@ static void json_parse_object(const char** json, JsonObject* obj, const char* pa
 static void json_parse_array(const char** json, JsonObject* obj, const char* parent_key) {
     if (**json == '[') (*json)++;
     
-    // Skip whitespace
     while (**json && isspace(**json)) (*json)++;
     
     int index = 0;
@@ -294,7 +283,6 @@ static void json_parse_array(const char** json, JsonObject* obj, const char* par
         json_parse_value(json, obj, key);
         index++;
         
-        // Skip whitespace
         while (**json && isspace(**json)) (*json)++;
         
         if (**json == ',') {
@@ -307,7 +295,6 @@ static void json_parse_array(const char** json, JsonObject* obj, const char* par
 }
 
 static void json_parse_value(const char** json, JsonObject* obj, const char* parent_key) {
-    // Skip whitespace
     while (**json && isspace(**json)) (*json)++;
     
     if (**json == '"') {
@@ -328,7 +315,6 @@ static void json_parse_value(const char** json, JsonObject* obj, const char* par
         json_object_add(obj, parent_key, "null");
         *json += 4;
     } else {
-        // Number - read until non-digit or end of number
         const char* start = *json;
         while (**json && (isdigit(**json) || **json == '.' || **json == '-')) {
             (*json)++;
@@ -375,7 +361,6 @@ static void kitty_parse_json() {
     const char* json_ptr = jsonStr;
     json_parse_value(&json_ptr, &obj, "");
     
-    // ─── STORE RESULTS IN TEMP FILE ──────────────────────────
     char tempFile[LYNX_MAX_PATH];
     #ifdef _WIN32
     const char* tempDir = getenv("TEMP");
@@ -389,7 +374,6 @@ static void kitty_parse_json() {
     if (f) {
         fprintf(f, "%d\n", obj.count);
         for (int i = 0; i < obj.count; i++) {
-            // FIX: Escape pipe characters to prevent corruption
             char* escaped_key = str_replace(obj.keys[i], "|", "\\|");
             char* escaped_val = str_replace(obj.values[i], "|", "\\|");
             fprintf(f, "%s|%s\n", escaped_key, escaped_val);
@@ -611,7 +595,6 @@ int pawcom_parse_statement(Token t) {
         while (1) {
             Token next = peekToken();
             
-            // If next token is a command, stop (don't consume it)
             if (is_command_token(next.type)) {
                 break;
             }
@@ -629,7 +612,6 @@ int pawcom_parse_statement(Token t) {
             } else if (val.type == TOKEN_IDENTIFIER) {
                 char name[64];
                 snprintf(name, sizeof(name), "%.*s", val.length, val.start);
-                // Prefer string variable even if empty
                 Variable* v = findVar(name);
                 if (v && v->type == VAR_STRING) {
                     const char* s = v->value.strValue ? v->value.strValue : "";
@@ -689,7 +671,6 @@ int pawcom_parse_statement(Token t) {
             return 1;
         }
 
-        // Parse the expression - now handles both strings and numbers
         Value val = parse_expression();
         if (lynx_error) return 1;
         
@@ -1015,9 +996,8 @@ int pawcom_parse_statement(Token t) {
             unescape_string_token(strToken, str, sizeof(str));
         } else {
             char name[64];
-            snprintfresult(name, sizeof(name), "%.*)s", strToken.length, str {
-Token.start);
-                       char* val = getVarString(name);
+            snprintf(name, sizeof(name), "%.*s", strToken.length, strToken.start);
+            char* val = getVarString(name);
             if (val) {
                 snprintf(str, sizeof(str), "%s", val);
             } else {
@@ -1078,8 +1058,12 @@ Token.start);
         
         int count = 0;
         char** result = split_string(str, delim, &count);
-        if ( for (int i = 0; i < count; i++) {
+        if (result) {
+            for (int i = 0; i < count; i++) {
                 setArrayStringElement("__result", i, result[i]);
+                char splitName[32];
+                snprintf(splitName, sizeof(splitName), "__split_%d", i);
+                setVarString(splitName, result[i]);
                 free(result[i]);
             }
             free(result);
