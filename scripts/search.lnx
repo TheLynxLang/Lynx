@@ -12,10 +12,9 @@ KittyReadFile "packages.json"
 Set json = __file_content
 
 KittyParseJSON json
-Set count = __json_len
 Set found = 0
 
-For i = 0 To count - 1 {
+For i = 0 To __json_count - 1 {
     Set key = __json_keys[i]
     Set value = __json_values[i]
     
