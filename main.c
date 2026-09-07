@@ -913,4 +913,14 @@ int main(int argc, char* argv[]) {
             initScanner(line);
             parse_statement();
             if (lynx_error) {
-                fprintf(stderr, "🐾
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
+            }
+        }
+    }
+
+    unload_all_libs();
+    cleanup_all();
+    printf("🐾 Goodbye!\n");
+    return 0;
+}
