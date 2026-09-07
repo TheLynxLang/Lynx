@@ -4,6 +4,10 @@ Set pkgName = __pkg
 Set version = "latest"
 
 KittyReadFile "lynx.toml"
+If __result == 0 {
+    Roar "⚠️ lynx.toml not found"
+    Return
+}
 Set content = __file_content
 
 Set needle = pkgName + " = "
