@@ -742,7 +742,7 @@ int main(int argc, char* argv[]) {
             printf("🔄 Preparing update...\n");
             char tempInstaller[LYNX_MAX_PATH];
             sprintf(tempInstaller, "%s\\LynxInstaller.exe", getenv("TEMP"));
-            const char* url = "https://github.com/justdev-chris/Lynx/releases/latest/download/LynxInstaller.exe";
+            const char* url = "https://github.com/TheLynxLang/Lynx/releases/latest/download/LynxInstaller.exe";
             if (S_OK == URLDownloadToFileA(NULL, url, tempInstaller, 0, NULL)) {
                 ShellExecuteA(NULL, "open", tempInstaller, NULL, NULL, SW_SHOWNORMAL);
                 exit(0);
@@ -754,7 +754,7 @@ int main(int argc, char* argv[]) {
         }
         #else
         else if (STRICMP(argv[1], "--update") == 0) {
-            printf("🔄 Linux update: Please download from https://github.com/justdev-chris/Lynx/releases\n");
+            printf("🔄 Linux update: Please download from https://github.com/TheLynxLang/Lynx/releases\n");
             return 0;
         }
         #endif
