@@ -221,7 +221,46 @@ static int pkg_exists(const char* content, const char* pkg) {
     return strstr(content, needle) != NULL;
 }
 
+// ─── RESOLVE LATEST VERSION ─────────────────────────────────────
+static void resolve_latest_version(const char* pkg, char* out_version, size_t out_size) {
+    out_version[0] = '\0';
+    
+    // Download packages.json
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "curl -k -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json --ssl-no-revoke");
+    system(cmd);
+    
+    char* json = read_file_content("packages.json");
+    if (!json) {
+        remove("packages.json");
+        return;
+    }
+    
+    // Find package
+    char search[256];
+    snprintf(search, sizeof(search), "\"%s\":", pkg);
+    char* pkg_pos = strstr(json, search);
+    if (pkg_pos) {
+        char* latest_pos = strstr(pkg_pos, "\"latest\":");
+        if (latest_pos) {
+            sscanf(latest_pos, "\"latest\": \"%[^\"]\"", out_version);
+        }
+    }
+    
+    free(json);
+    remove("packages.json");
+}
+
 static void pkg_add(const char* pkg) {
+    // Resolve latest version
+    char latest_version[256] = {0};
+    resolve_latest_version(pkg, latest_version, sizeof(latest_version));
+    
+    if (strlen(latest_version) == 0) {
+        printf("❌ Could not find package '%s' in registry\n", pkg);
+        return;
+    }
+    
     char* content = read_file_content("lynx.toml");
     if (!content) {
         // Create default lynx.toml
@@ -235,13 +274,13 @@ static void pkg_add(const char* pkg) {
     }
     
     char newLine[256];
-    snprintf(newLine, sizeof(newLine), "%s = \"latest\"\n", pkg);
+    snprintf(newLine, sizeof(newLine), "%s = \"%s\"\n", pkg, latest_version);
     char* newContent = malloc(strlen(content) + strlen(newLine) + 1);
     strcpy(newContent, content);
     strcat(newContent, newLine);
     
     if (write_file_content("lynx.toml", newContent)) {
-        printf("✅ Added %s (latest)\n", pkg);
+        printf("✅ Added %s (%s)\n", pkg, latest_version);
     } else {
         printf("❌ Failed to write lynx.toml\n");
     }
@@ -294,11 +333,24 @@ static void pkg_install() {
         return;
     }
     
+    // Download packages.json once for version resolution
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "curl -k -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json --ssl-no-revoke");
+    system(cmd);
+    char* registry = read_file_content("packages.json");
+    if (!registry) {
+        printf("⚠️ Could not fetch package registry\n");
+        free(content);
+        return;
+    }
+    
     // Find [dependencies] section
     char* deps = strstr(content, "[dependencies]");
     if (!deps) {
         printf("⚠️ No [dependencies] section found\n");
         free(content);
+        free(registry);
+        remove("packages.json");
         return;
     }
     
@@ -309,11 +361,30 @@ static void pkg_install() {
     char* line = strtok(deps + 14, "\n");
     int installed = 0;
     while (line) {
-        // Skip empty lines and section headers
         if (strlen(line) > 0 && line[0] != '[' && line[0] != '#') {
             char pkg[256] = {0};
             char version[256] = {0};
             if (sscanf(line, "%[^= ] = \"%[^\"]\"", pkg, version) == 2) {
+                char actual_version[256] = {0};
+                
+                // If version is "latest", resolve from registry
+                if (strcmp(version, "latest") == 0) {
+                    char search[256];
+                    snprintf(search, sizeof(search), "\"%s\":", pkg);
+                    char* pkg_pos = strstr(registry, search);
+                    if (pkg_pos) {
+                        char* latest_pos = strstr(pkg_pos, "\"latest\":");
+                        if (latest_pos) {
+                            sscanf(latest_pos, "\"latest\": \"%[^\"]\"", actual_version);
+                        }
+                    }
+                    if (strlen(actual_version) == 0) {
+                        printf("❌ Could not find latest version for %s\n", pkg);
+                        continue;
+                    }
+                    strcpy(version, actual_version);
+                }
+                
                 printf("📦 Installing %s (%s)...\n", pkg, version);
                 
                 // Create package directory
@@ -324,13 +395,28 @@ static void pkg_install() {
                 // Download package
                 char url[512];
                 char dest[512];
-                char cmd[1024];
                 snprintf(url, sizeof(url), "https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages/%s/%s/package.tar.gz", pkg, version);
                 snprintf(dest, sizeof(dest), "libs/%s.tar.gz", pkg);
                 snprintf(cmd, sizeof(cmd), "curl -k -L -o %s %s --ssl-no-revoke", dest, url);
                 
                 int result = system(cmd);
                 if (result == 0) {
+                    // Check if file was downloaded successfully
+                    FILE* check = fopen(dest, "rb");
+                    if (check) {
+                        fseek(check, 0, SEEK_END);
+                        long size = ftell(check);
+                        fclose(check);
+                        if (size < 100) {
+                            printf("❌ Downloaded file too small (%ld bytes). URL may be invalid.\n", size);
+                            remove(dest);
+                            continue;
+                        }
+                    } else {
+                        printf("❌ Failed to download %s\n", pkg);
+                        continue;
+                    }
+                    
                     // Extract
                     snprintf(cmd, sizeof(cmd), "tar -xzf %s -C libs/%s/ && rm -f %s", dest, pkg, dest);
                     system(cmd);
@@ -345,6 +431,8 @@ static void pkg_install() {
     }
     
     free(content);
+    free(registry);
+    remove("packages.json");
     
     if (installed > 0) {
         printf("✅ Installed %d package(s)\n", installed);
@@ -416,8 +504,92 @@ static void pkg_search(const char* term) {
 
 static void pkg_update() {
     printf("🔄 Updating packages...\n");
-    pkg_install();
-    printf("✅ All packages up to date\n");
+    
+    // Read lynx.toml and update each dependency to latest
+    char* content = read_file_content("lynx.toml");
+    if (!content) {
+        printf("⚠️ lynx.toml not found\n");
+        return;
+    }
+    
+    // Download packages.json
+    char cmd[512];
+    snprintf(cmd, sizeof(cmd), "curl -k -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json --ssl-no-revoke");
+    system(cmd);
+    char* registry = read_file_content("packages.json");
+    if (!registry) {
+        printf("⚠️ Could not fetch package registry\n");
+        free(content);
+        return;
+    }
+    
+    // Find [dependencies] section
+    char* deps = strstr(content, "[dependencies]");
+    if (!deps) {
+        printf("⚠️ No [dependencies] section found\n");
+        free(content);
+        free(registry);
+        remove("packages.json");
+        return;
+    }
+    
+    // Parse each line in dependencies and update versions
+    char* line = strtok(deps + 14, "\n");
+    int updated = 0;
+    char new_content[8192] = {0};
+    
+    // Copy everything before [dependencies]
+    int deps_pos = deps - content;
+    strncpy(new_content, content, deps_pos + 14); // include "[dependencies]\n"
+    
+    while (line) {
+        if (strlen(line) > 0 && line[0] != '[' && line[0] != '#') {
+            char pkg[256] = {0};
+            char current_version[256] = {0};
+            if (sscanf(line, "%[^= ] = \"%[^\"]\"", pkg, current_version) == 2) {
+                // Find latest version
+                char latest_version[256] = {0};
+                char search[256];
+                snprintf(search, sizeof(search), "\"%s\":", pkg);
+                char* pkg_pos = strstr(registry, search);
+                if (pkg_pos) {
+                    char* latest_pos = strstr(pkg_pos, "\"latest\":");
+                    if (latest_pos) {
+                        sscanf(latest_pos, "\"latest\": \"%[^\"]\"", latest_version);
+                    }
+                }
+                
+                if (strlen(latest_version) > 0 && strcmp(current_version, latest_version) != 0) {
+                    printf("📦 Updating %s (%s → %s)\n", pkg, current_version, latest_version);
+                    snprintf(line, strlen(line) + 256, "%s = \"%s\"", pkg, latest_version);
+                    updated++;
+                }
+                strcat(new_content, line);
+                strcat(new_content, "\n");
+            }
+        } else {
+            // Preserve comments and empty lines
+            strcat(new_content, line);
+            strcat(new_content, "\n");
+        }
+        line = strtok(NULL, "\n");
+    }
+    
+    free(content);
+    free(registry);
+    remove("packages.json");
+    
+    if (write_file_content("lynx.toml", new_content)) {
+        if (updated > 0) {
+            printf("🔄 Reinstalling updated packages...\n");
+            pkg_install();
+            printf("✅ Updated %d package(s)\n", updated);
+        } else {
+            printf("✅ All packages up to date\n");
+        }
+    } else {
+        printf("❌ Failed to update lynx.toml\n");
+    }
 }
 
 static void pkg_publish() {
@@ -741,14 +913,4 @@ int main(int argc, char* argv[]) {
             initScanner(line);
             parse_statement();
             if (lynx_error) {
-                fprintf(stderr, "🐾 %s\n", lynx_error);
-                clearError();
-            }
-        }
-    }
-
-    unload_all_libs();
-    cleanup_all();
-    printf("🐾 Goodbye!\n");
-    return 0;
-}
+                fprintf(stderr, "🐾
