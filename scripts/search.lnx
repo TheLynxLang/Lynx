@@ -1,9 +1,9 @@
 Roar "🐾 Searching for: " + __term
 
-Run "curl -k -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+Run "curl -k -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json --ssl-no-revoke"
 
 KittyReadFile "packages.json"
-If __result == 0 {
+If __result < 1 {
     Roar "⚠️ Failed to download packages.json"
     Return
 }
