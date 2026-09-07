@@ -194,6 +194,7 @@ static void json_object_add(JsonObject* obj, const char* key, const char* value)
     obj->keys[obj->count] = strdup(key);
     obj->values[obj->count] = strdup(value);
     obj->count++;
+    printf("🐾 DEBUG JSON ADD: key='%s', value='%s', count=%d\n", key, value, obj->count);
 }
 
 static void json_object_free(JsonObject* obj) {
@@ -241,6 +242,7 @@ static void json_parse_object(const char** json, JsonObject* obj, const char* pa
     while (**json && **json != '}') {
         // Parse key
         char* key = json_parse_string(json);
+        printf("🐾 DEBUG JSON: found key '%s'\n", key);
         
         // Skip whitespace
         while (**json && isspace(**json)) (*json)++;
@@ -363,19 +365,20 @@ static void kitty_parse_json() {
         }
     }
     
+    printf("🐾 DEBUG JSON: Parsing JSON string:\n%s\n", jsonStr);
+    
     JsonObject obj;
     json_object_init(&obj);
     
     const char* json_ptr = jsonStr;
     json_parse_value(&json_ptr, &obj, "");
     
-    // Store results in variables
-    // __json_count = number of key-value pairs
-    // __json_keys = array of keys
-    // __json_values = array of values
+    printf("🐾 DEBUG JSON: obj.count = %d\n", obj.count);
     
+    // Store results in variables
     setVar("__json_count", (double)obj.count);
     for (int i = 0; i < obj.count; i++) {
+        printf("🐾 DEBUG JSON: key[%d] = '%s', value[%d] = '%s'\n", i, obj.keys[i], i, obj.values[i]);
         setArrayStringElement("__json_keys", i, obj.keys[i]);
         setArrayStringElement("__json_values", i, obj.values[i]);
     }
@@ -1070,14 +1073,15 @@ int pawcom_parse_statement(Token t) {
 
     // ─── KITTY_CONTAINS ──────────────────────────────────────
     if (t.type == TOKEN_STRING_CONTAINS) {
-        Token hayToken = scanToken();
-        Token needleToken = scanToken();
+        Token hayTok = scanToken();
+        Token comma = scanToken();
+        Token needleTok = scanToken();
         
-        if (hayToken.type != TOKEN_STRING && hayToken.type != TOKEN_IDENTIFIER) {
+        if (hayTok.type != TOKEN_STRING && hayTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittyCheckIfStringContains expects string or variable");
             return 1;
         }
-        if (needleToken.type != TOKEN_STRING && needleToken.type != TOKEN_IDENTIFIER) {
+        if (needleTok.type != TOKEN_STRING && needleTok.type != TOKEN_IDENTIFIER) {
             setErrorF("KittyCheckIfStringContains expects string or variable");
             return 1;
         }
@@ -1085,11 +1089,11 @@ int pawcom_parse_statement(Token t) {
         char hay[MAX_STRING];
         char needle[MAX_STRING];
         
-        if (hayToken.type == TOKEN_STRING) {
-            unescape_string_token(hayToken, hay, sizeof(hay));
+        if (hayTok.type == TOKEN_STRING) {
+            unescape_string_token(hayTok, hay, sizeof(hay));
         } else {
             char name[64];
-            snprintf(name, sizeof(name), "%.*s", hayToken.length, hayToken.start);
+            snprintf(name, sizeof(name), "%.*s", hayTok.length, hayTok.start);
             char* val = getVarString(name);
             if (val) {
                 snprintf(hay, sizeof(hay), "%s", val);
@@ -1099,11 +1103,11 @@ int pawcom_parse_statement(Token t) {
             }
         }
         
-        if (needleToken.type == TOKEN_STRING) {
-            unescape_string_token(needleToken, needle, sizeof(needle));
+        if (needleTok.type == TOKEN_STRING) {
+            unescape_string_token(needleTok, needle, sizeof(needle));
         } else {
             char name[64];
-            snprintf(name, sizeof(name), "%.*s", needleToken.length, needleToken.start);
+            snprintf(name, sizeof(name), "%.*s", needleTok.length, needleTok.start);
             char* val = getVarString(name);
             if (val) {
                 snprintf(needle, sizeof(needle), "%s", val);
