@@ -61,7 +61,8 @@ Set lock_content = ""
 For i = 0 To lines_count - 1 {
     Set line = __split_[i]
 
-    KittyCheckIfStringContains line "[dependencies]"
+    Set needle1 = "[dependencies]"
+    KittyCheckIfStringContains line needle1
     If __result == 1 {
         in_deps = 1
         Continue
@@ -69,7 +70,8 @@ For i = 0 To lines_count - 1 {
 
     If in_deps == 1 {
         If line == "" { Continue }
-        KittyCheckIfStringContains line "["
+        Set needle2 = "["
+        KittyCheckIfStringContains line needle2
         If __result == 1 {
             Break
         }
