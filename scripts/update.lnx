@@ -35,7 +35,8 @@ Set updated = 0
 For i = 0 To lines_count - 1 {
     Set line = __split_[i]
 
-    KittyCheckIfStringContains line "[dependencies]"
+    Set needle1 = "[dependencies]"
+    KittyCheckIfStringContains line needle1
     If __result == 1 {
         in_deps = 1
         new_toml = new_toml + line + "\n"
@@ -47,7 +48,8 @@ For i = 0 To lines_count - 1 {
             new_toml = new_toml + line + "\n"
             Continue
         }
-        KittyCheckIfStringContains line "["
+        Set needle2 = "["
+        KittyCheckIfStringContains line needle2
         If __result == 1 {
             in_deps = 0
             new_toml = new_toml + line + "\n"
@@ -67,7 +69,8 @@ For i = 0 To lines_count - 1 {
             Set found_version = ""
             For j = 0 To json_count - 1 {
                 Set key = __temp_keys[j]
-                If key == ("packages." + pkg + ".latest") {
+                Set pkg_latest = "packages." + pkg + ".latest"
+                If key == pkg_latest {
                     Set found_version = __temp_values[j]
                     Break
                 }
