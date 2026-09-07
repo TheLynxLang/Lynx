@@ -41,7 +41,7 @@ Set new_toml = ""
 Set updated = 0
 
 For i = 0 To lines_count - 1 {
-    Set line = __result[i]
+    Set line = __split[i]
 
     KittyCheckIfStringContains line "[dependencies]"
     If __result == 1 {
