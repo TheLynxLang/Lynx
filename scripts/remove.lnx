@@ -33,7 +33,7 @@ If __result == 1 {
     KittySplitString lockContent "\n"
     Set lock_lines_count = __result_count
     For i = 0 To lock_lines_count - 1 {
-        Set line = __result[i]
+        Set line = __split[i]
         KittyCheckIfStringContains line (__pkg + " = ")
         If __result == 0 {
             Set newLock = newLock + line + "\n"
