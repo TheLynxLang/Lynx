@@ -12,7 +12,6 @@ KittyReadFile "packages.json"
 Set json = __file_content
 
 KittyParseJSON json
-Set json_count = __json_len
 
 KittyReadFile "lynx.toml"
 Set content = __file_content
@@ -56,11 +55,11 @@ For i = 0 To lines_count - 1 {
                 Set old_version = __result[1]
             }
             
-            # Find the package in the JSON using __json_keys and __json_values
+            # Find the package in the JSON
             Set found_version = ""
             Set latest_key = "packages." + pkg + ".latest"
             
-            For j = 0 To json_count - 1 {
+            For j = 0 To __json_count - 1 {
                 If __json_keys[j] == latest_key {
                     Set found_version = __json_values[j]
                     Break
