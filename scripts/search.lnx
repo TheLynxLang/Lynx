@@ -12,6 +12,11 @@ KittyReadFile "packages.json"
 Set json = __file_content
 
 KittyParseJSON json
+
+# ===== DEBUG: Show all variables and their types =====
+Hunt
+# ===== END DEBUG =====
+
 Set count = __json_count
 Set found = 0
 
@@ -21,7 +26,6 @@ For i = 0 To count - 1 {
     
     KittyCheckIfStringContains key ".description"
     If __result == 1 {
-        # Check if the key contains the search term (just the name, no dots)
         KittyCheckIfStringContains key __term
         If __result == 1 {
             Roar "📦 " + __term + " - " + value
