@@ -426,8 +426,9 @@ static void pkg_install() {
                     }
                     
                     // Extract
-                    snprintf(cmd, sizeof(cmd), "tar -xzf %s -C libs/%s/ && rm -f %s", dest, pkg, dest);
+                    snprintf(cmd, sizeof(cmd), "tar -xzf %s -C libs/%s/", dest, pkg);
                     system(cmd);
+                    remove(dest);  // C function, works everywhere!
                     printf("✅ Installed %s\n", pkg);
                     installed++;
                 } else {
