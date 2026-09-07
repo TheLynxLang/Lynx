@@ -748,6 +748,21 @@ int pawcom_parse_statement(Token t) {
         return 1;
     }
 
+    // ─── LOAD_LIB ──────────────────────────────────────────────────
+    if (t.type == TOKEN_LOAD_LIB) {
+        Token nameToken = scanToken();
+        if (nameToken.type != TOKEN_STRING) {
+            char* text = getTokenText(nameToken);
+            setErrorF("LoadLib expects string, got '%s' (type: %s)", 
+                      text, tokenTypeToString(nameToken.type));
+            return 1;
+        }
+        char libName[256];
+        unescape_string_token(nameToken, libName, sizeof(libName));
+        load_lib(libName);
+        return 1;
+    }
+
     // ─── KITTY_PORT ────────────────────────────────────────────
     if (t.type == TOKEN_KITTY_PORT) {
         Token pkgToken = scanToken();
