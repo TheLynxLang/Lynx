@@ -24,11 +24,11 @@ Set found = 0
 Set count = __result[0]
 
 For i = 1 To count {
-    Set line = __result[i]
+    Set line = __split[i]
     
     KittySplitString line "|"
-    Set key = __result[0]
-    Set value = __result[1]
+    Set key = __split[0]
+    Set value = __split[1]
     
     KittyCheckIfStringContains key __term
     If __result == 1 {
