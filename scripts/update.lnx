@@ -6,9 +6,9 @@ If tempDir == "" {
 }
 Set jsonFile = tempDir + "/packages.json"
 
-Run "curl -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+Run "curl -L -o " + jsonFile + " https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
 
-KittyReadFile "packages.json"
+KittyReadFile jsonFile
 Set json = __file_content
 
 KittyParseJSON json
@@ -17,17 +17,14 @@ KittyReadFile __json_file
 Set content = __file_content
 
 KittySplitString content "\n"
-Set lines = __result
 Set lines_count = __result_count
 
 # First line is count
-Set json_count = lines[0]
+Set json_count = __result[0]
 
 # Build a lookup array of keys and values
-Set keys = []
-Set values = []
 For i = 1 To json_count {
-    Set line = lines[i]
+    Set line = __result[i]
     KittySplitString line "|"
     Set key = __result[0]
     Set value = __result[1]
@@ -38,14 +35,13 @@ For i = 1 To json_count {
 KittyReadFile "lynx.toml"
 Set content = __file_content
 KittySplitString content "\n"
-Set lines = __result
 Set lines_count = __result_count
 Set in_deps = 0
 Set new_toml = ""
 Set updated = 0
 
 For i = 0 To lines_count - 1 {
-    Set line = lines[i]
+    Set line = __result[i]
 
     KittyCheckIfStringContains line "[dependencies]"
     If __result == 1 {
@@ -111,5 +107,5 @@ If updated > 0 {
     Roar "✅ All packages up to date"
 }
 
-Run "rm -f packages.json"
+Run "rm -f " + jsonFile
 Run "rm -f " + __json_file
