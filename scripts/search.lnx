@@ -21,7 +21,8 @@ For i = 1 To count {
     KittySplitString line "|"
     Set key = __split_0
     Set value = __split_1
-    KittyCheckIfStringContains key __term
+    Set needle = __term
+    KittyCheckIfStringContains key needle
     If __result == 1 {
         Roar "📦 " + __term + " - " + value
         Set found = found + 1
