@@ -1,7 +1,7 @@
 Roar "🐾 Removing package: " + __pkg
 
 KittyReadFile "lynx.toml"
-If __result == 0 {
+If __result < 1 {
     Roar "⚠️ lynx.toml not found"
     Return
 }
@@ -33,21 +33,23 @@ KittyWriteFile "lynx.toml" new_content
 KittyFileExists "lynx.lock"
 If __result == 1 {
     KittyReadFile "lynx.lock"
-    If __result == 1 {
-        Set lockContent = __file_content
-        Set newLock = ""
-        KittySplitString lockContent "\n"
-        Set lock_lines_count = __result_count
-        For i = 0 To lock_lines_count - 1 {
-            Set line = __split_[i]
-            Set needle = __pkg + " = "
-            KittyCheckIfStringContains line needle
-            If __result == 0 {
-                Set newLock = newLock + line + "\n"
-            }
-        }
-        KittyWriteFile "lynx.lock" newLock
+    If __result < 1 {
+        Roar "⚠️ Failed to read lynx.lock"
+        Return
     }
+    Set lockContent = __file_content
+    Set newLock = ""
+    KittySplitString lockContent "\n"
+    Set lock_lines_count = __result_count
+    For i = 0 To lock_lines_count - 1 {
+        Set line = __split_[i]
+        Set needle = __pkg + " = "
+        KittyCheckIfStringContains line needle
+        If __result == 0 {
+            Set newLock = newLock + line + "\n"
+        }
+    }
+    KittyWriteFile "lynx.lock" newLock
 }
 
 Run "rmdir /s /q libs\\" + __pkg
