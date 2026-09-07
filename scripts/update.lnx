@@ -1,9 +1,9 @@
 Roar "🐾 Updating packages..."
 
-Run "curl -k -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+Run "curl -k -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json --ssl-no-revoke"
 
 KittyReadFile "packages.json"
-If __result == 0 {
+If __result < 1 {
     Roar "⚠️ Failed to download packages.json"
     Return
 }
@@ -29,7 +29,7 @@ For i = 1 To json_count {
 }
 
 KittyReadFile "lynx.toml"
-If __result == 0 {
+If __result < 1 {
     Roar "⚠️ lynx.toml not found"
     Return
 }
