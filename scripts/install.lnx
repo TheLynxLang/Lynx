@@ -8,6 +8,10 @@ Paw cacheDir
 If KittyFileExists("lynx.lock") {
     Roar "🔒 Lockfile found — installing pinned versions"
     KittyReadFile "lynx.lock"
+    If __result == 0 {
+        Roar "⚠️ Failed to read lynx.lock"
+        Return
+    }
     Set lock_content = __file_content
     KittySplitString lock_content "\n"
     Set lock_lines_count = __result_count
@@ -32,7 +36,8 @@ If KittyFileExists("lynx.lock") {
                 Roar "💾 Using cached: " + pkg
                 Run "cp " + cacheFile + " " + dest
             } Else {
-                Run "curl -L -o " + dest + " " + url
+                Set cmd = "curl -k -L -o " + dest + " " + url
+                Run cmd
                 Run "cp " + dest + " " + cacheFile
             }
 
@@ -51,6 +56,10 @@ If KittyFileExists("lynx.lock") {
 Roar "🔓 No lockfile found — resolving dependencies"
 
 KittyReadFile "lynx.toml"
+If __result == 0 {
+    Roar "⚠️ lynx.toml not found"
+    Return
+}
 Set content = __file_content
 
 KittySplitString content "\n"
@@ -93,7 +102,8 @@ For i = 0 To lines_count - 1 {
                 Roar "💾 Using cached: " + pkg
                 Run "cp " + cacheFile + " " + dest
             } Else {
-                Run "curl -L -o " + dest + " " + url
+                Set cmd = "curl -k -L -o " + dest + " " + url
+                Run cmd
                 Run "cp " + dest + " " + cacheFile
             }
 
