@@ -1142,13 +1142,9 @@ void format_file(const char* path) {
     size_t bytesRead = fread(src, 1, size, f);
     fclose(f);
     
-    if (bytesRead != (size_t)size) {
-        fprintf(stderr, "🐾 ERROR: Could not read entire file (read %zu, expected %ld)\n", bytesRead, size);
-        free(src);
-        return;
-    }
-    
-    src[size] = '\0';
+    // Use what we actually read, ignore size mismatch
+    // (trailing newline issues can cause off-by-one)
+    src[bytesRead] = '\0';
 
     char* result = malloc(size * 2 + 1);
     if (!result) {
@@ -1163,7 +1159,7 @@ void format_file(const char* path) {
     size_t resultLen = 0;
     size_t maxLen = size * 2;
 
-    for (int i = 0; src[i] && resultLen < maxLen; i++) {
+    for (size_t i = 0; i < bytesRead && resultLen < maxLen; i++) {
         char c = src[i];
         if (c == '\n') {
             if (resultLen + 1 < maxLen) {
@@ -1175,14 +1171,14 @@ void format_file(const char* path) {
                 result[resultLen++] = ' ';
             }
             line_start = 0;
-            for (int j = i; src[j] && src[j] != '\n'; j++) {
+            for (size_t j = i; j < bytesRead && src[j] != '\n'; j++) {
                 if (src[j] == '{') indent++;
                 else if (src[j] == '}') indent--;
             }
-            while (src[i] && src[i] != '\n' && resultLen < maxLen) {
+            while (i < bytesRead && src[i] != '\n' && resultLen < maxLen) {
                 result[resultLen++] = src[i++];
             }
-            if (src[i]) i--;
+            if (i < bytesRead) i--;
         }
     }
     result[resultLen] = '\0';
@@ -1243,13 +1239,8 @@ void check_file(const char* path) {
     size_t bytesRead = fread(src, 1, size, f);
     fclose(f);
     
-    if (bytesRead != (size_t)size) {
-        fprintf(stderr, "🐾 ERROR: Could not read entire file (read %zu, expected %ld)\n", bytesRead, size);
-        free(src);
-        return;
-    }
-    
-    src[size] = '\0';
+    // Use what we actually read, ignore size mismatch
+    src[bytesRead] = '\0';
 
     char* old_error = lynx_error ? strdup(lynx_error) : NULL;
     clearError();
