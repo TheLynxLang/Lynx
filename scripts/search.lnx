@@ -12,14 +12,18 @@ KittyReadFile "packages.json"
 Set json = __file_content
 
 KittyParseJSON json
+Set count = __json_count
 Set found = 0
 
-For i = 0 To __json_count - 1 {
+For i = 0 To count - 1 {
     Set key = __json_keys[i]
     Set value = __json_values[i]
     
+    Roar "DEBUG: key = " + key
+    
     KittyCheckIfStringContains key ".description"
     If __result == 1 {
+        Roar "DEBUG: key contains .description"
         KittyCheckIfStringContains key __term
         If __result == 1 {
             Roar "📦 " + __term + " - " + value
