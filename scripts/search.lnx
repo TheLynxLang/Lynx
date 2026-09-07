@@ -1,8 +1,12 @@
 Roar "🐾 Searching for: " + __term
 
-Run "curl -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+Run "curl -k -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
 
 KittyReadFile "packages.json"
+If __result == 0 {
+    Roar "⚠️ Failed to download packages.json"
+    Return
+}
 Set json = __file_content
 
 KittyParseJSON json
