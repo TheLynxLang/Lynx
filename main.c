@@ -23,6 +23,13 @@ extern LynxError lynx_error_state;
 // ─── GLOBAL TRY/CATCH STATE ──────────────────────────────────
 TryState try_state = {0};
 
+// ─── DEBUG FLAG ──────────────────────────────────────────────────
+int lynx_debug_mode = 1;  // 1 = on (default), 0 = off
+
+// ─── DEBUG MACRO ─────────────────────────────────────────────────
+#define DEBUG_PRINT(fmt, ...) \
+    do { if (lynx_debug_mode) { printf("🐾 DEBUG " fmt, ##__VA_ARGS__); } } while(0)
+
 // ─── DIRECTORY HELPER ──────────────────────────────────────────
 static void create_dir(const char* path) {
     #ifdef _WIN32
@@ -91,6 +98,7 @@ void show_help() {
     printf("  run <file.lnx>     - Run script\n");
     printf("  fmt <file.lnx>     - Auto-format Lynx file\n");
     printf("  check <file.lnx>   - Check syntax without executing\n");
+    printf("  debug              - Toggle debug messages\n");
     printf("  --version          - Show version\n");
     printf("  --update           - Self-update\n");
     printf("  help               - Show this menu\n\n");
@@ -100,7 +108,7 @@ void runFile(const char* path, int argc, char** argv) {
     (void)argc;
     (void)argv;
 
-    printf("🐾 DEBUG runFile: ENTER (path='%s')\n", path);
+    DEBUG_PRINT("runFile: ENTER (path='%s')\n", path);
 
     char cleanPath[LYNX_MAX_PATH];
     if (path[0] == '"') {
@@ -147,7 +155,7 @@ void runFile(const char* path, int argc, char** argv) {
 
     if (!file) {
         fprintf(stderr, "🐾 File '%s' not found\n", cleanPath);
-        printf("🐾 DEBUG runFile: EXIT (file not found)\n");
+        DEBUG_PRINT("runFile: EXIT (file not found)\n");
         return;
     }
 
@@ -168,10 +176,10 @@ void runFile(const char* path, int argc, char** argv) {
             buf[read - 3] = '\0';
         }
 
-        printf("🐾 DEBUG runFile: About to initScanner\n");
+        DEBUG_PRINT("runFile: About to initScanner\n");
         Scanner previousScanner = scanner;
         initScanner(buf);
-        printf("🐾 DEBUG runFile: Scanner initialized, starting parse loop\n");
+        DEBUG_PRINT("runFile: Scanner initialized, starting parse loop\n");
         
         while (peekToken().type != TOKEN_EOF) {
             parse_statement();
@@ -188,7 +196,7 @@ void runFile(const char* path, int argc, char** argv) {
         fclose(file);
     }
 
-    printf("🐾 DEBUG runFile: EXIT\n");
+    DEBUG_PRINT("runFile: EXIT\n");
 }
 
 // ─── PACKAGE MANAGER FUNCTIONS ──────────────────────────────────
@@ -745,6 +753,13 @@ int main(int argc, char* argv[]) {
         }
         #endif
         
+        // ─── DEBUG TOGGLE ──────────────────────────────────────
+        else if (STRICMP(argv[1], "debug") == 0) {
+            lynx_debug_mode = !lynx_debug_mode;
+            printf("🐾 Debug mode: %s\n", lynx_debug_mode ? "ON" : "OFF");
+            return 0;
+        }
+        
         // ─── PACKAGE MANAGER COMMANDS (C implementation) ──────
         else if (STRICMP(argv[1], "add") == 0) {
             if (argc >= 3) {
@@ -787,40 +802,40 @@ int main(int argc, char* argv[]) {
         else if (STRICMP(argv[1], "init") == 0) {
             clearError();
 
-            printf("🐾 DEBUG MAIN: argc = %d\n", argc);
-            printf("🐾 DEBUG MAIN: argv[2] = %s\n", argc >= 3 ? argv[2] : "(null)");
-            printf("🐾 DEBUG MAIN: argv[3] = %s\n", argc >= 4 ? argv[3] : "(null)");
+            DEBUG_PRINT("MAIN: argc = %d\n", argc);
+            DEBUG_PRINT("MAIN: argv[2] = %s\n", argc >= 3 ? argv[2] : "(null)");
+            DEBUG_PRINT("MAIN: argv[3] = %s\n", argc >= 4 ? argv[3] : "(null)");
 
             if (argc >= 3) {
                 setVarString("__project_name", argv[2]);
-                printf("🐾 DEBUG MAIN: Called setVarString(__project_name, %s)\n", argv[2]);
+                DEBUG_PRINT("MAIN: Called setVarString(__project_name, %s)\n", argv[2]);
             } else {
                 setVarString("__project_name", "my_project");
-                printf("🐾 DEBUG MAIN: Called setVarString(__project_name, my_project)\n");
+                DEBUG_PRINT("MAIN: Called setVarString(__project_name, my_project)\n");
             }
             if (argc >= 4) {
                 setVarString("__author", argv[3]);
-                printf("🐾 DEBUG MAIN: Called setVarString(__author, %s)\n", argv[3]);
+                DEBUG_PRINT("MAIN: Called setVarString(__author, %s)\n", argv[3]);
             } else {
                 setVarString("__author", "Anonymous");
-                printf("🐾 DEBUG MAIN: Called setVarString(__author, Anonymous)\n");
+                DEBUG_PRINT("MAIN: Called setVarString(__author, Anonymous)\n");
             }
             
-            printf("🐾 DEBUG MAIN: After setVarString, __project_name = '%s'\n", getVarString("__project_name"));
-            printf("🐾 DEBUG MAIN: After setVarString, __author = '%s'\n", getVarString("__author"));
-            printf("🐾 DEBUG MAIN: varCount = %d\n", varCount);
+            DEBUG_PRINT("MAIN: After setVarString, __project_name = '%s'\n", getVarString("__project_name"));
+            DEBUG_PRINT("MAIN: After setVarString, __author = '%s'\n", getVarString("__author"));
+            DEBUG_PRINT("MAIN: varCount = %d\n", varCount);
             
-            printf("🐾 DEBUG MAIN: All variables:\n");
+            DEBUG_PRINT("MAIN: All variables:\n");
             for (int i = 0; i < varCount; i++) {
-                printf("  %d: %s (type=%d)\n", i, den[i].name, den[i].type);
+                DEBUG_PRINT("  %d: %s (type=%d)\n", i, den[i].name, den[i].type);
                 if (den[i].type == VAR_STRING) {
-                    printf("      strValue = '%s'\n", den[i].value.strValue ? den[i].value.strValue : "(null)");
+                    DEBUG_PRINT("      strValue = '%s'\n", den[i].value.strValue ? den[i].value.strValue : "(null)");
                 }
             }
             
-            printf("🐾 DEBUG MAIN: BEFORE runFile, __project_name = '%s'\n", getVarString("__project_name"));
+            DEBUG_PRINT("MAIN: BEFORE runFile, __project_name = '%s'\n", getVarString("__project_name"));
             runFile("scripts/init.lnx", 0, NULL);
-            printf("🐾 DEBUG MAIN: AFTER runFile, __project_name = '%s'\n", getVarString("__project_name"));
+            DEBUG_PRINT("MAIN: AFTER runFile, __project_name = '%s'\n", getVarString("__project_name"));
             
             unload_all_libs();
             cleanup_all();
@@ -894,33 +909,4 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // ─── REPL MODE ──────────────────────────────────────────────
-    char line[1024];
-    printf("Lynx Engine %s | Type 'Help' for info\n", LYNX_VERSION);
-    while (1) {
-        printf("lynx > ");
-        if (!fgets(line, sizeof(line), stdin)) break;
-        line[strcspn(line, "\n")] = 0;
-        if (strlen(line) == 0) continue;
-
-        if (STRICMP(line, "help") == 0) {
-            show_help();
-        } else if (STRICMP(line, "exit") == 0) {
-            break;
-        } else if (strstr(line, ".lnx") != NULL) {
-            runFile(line, 0, NULL);
-        } else {
-            initScanner(line);
-            parse_statement();
-            if (lynx_error) {
-                fprintf(stderr, "🐾 %s\n", lynx_error);
-                clearError();
-            }
-        }
-    }
-
-    unload_all_libs();
-    cleanup_all();
-    printf("🐾 Goodbye!\n");
-    return 0;
-}
+    // ─── REPL MODE ─────────────────────────────────────────
