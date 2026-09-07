@@ -867,13 +867,16 @@ int pawcom_parse_statement(Token t) {
                 buf[bytes_read] = '\0';
                 fclose(f);
                 setVarString("__file_content", buf);
+                setVar("__result", 1.0);
                 free(buf);
             } else {
                 fclose(f);
                 setErrorF("Out of memory reading file");
+                setVar("__result", 0.0);
             }
         } else {
             setErrorF("KittyReadFile: File '%s' not found", path);
+            setVar("__result", 0.0);
         }
         return 1;
     }
