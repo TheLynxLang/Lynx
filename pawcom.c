@@ -587,6 +587,52 @@ static int is_command_token(LynxTokenType type) {
            type == TOKEN_KITTY_PARSE_JSON;
 }
 
+// ─── RECURSIVE MKDIR ─────────────────────────────────────────────
+static void mkdir_p(const char* path) {
+    if (!path || strlen(path) == 0) return;
+    
+    char tmp[LYNX_MAX_PATH];
+    char* p = NULL;
+    size_t len;
+
+    snprintf(tmp, sizeof(tmp), "%s", path);
+    len = strlen(tmp);
+    
+    // Remove trailing slash
+    if (len > 0 && (tmp[len - 1] == '/' || tmp[len - 1] == '\\')) {
+        tmp[len - 1] = '\0';
+    }
+    
+    #ifdef _WIN32
+    // Handle drive letters (C:)
+    if (len >= 2 && tmp[1] == ':') {
+        p = tmp + 2;
+    } else {
+        p = tmp + 1;
+    }
+    #else
+    p = tmp + 1;
+    #endif
+    
+    for (; *p; p++) {
+        if (*p == '/' || *p == '\\') {
+            *p = '\0';
+            #ifdef _WIN32
+            _mkdir(tmp);
+            #else
+            mkdir(tmp, 0777);
+            #endif
+            *p = '/';
+        }
+    }
+    
+    #ifdef _WIN32
+    _mkdir(tmp);
+    #else
+    mkdir(tmp, 0777);
+    #endif
+}
+
 int pawcom_parse_statement(Token t) {
     if (t.type == TOKEN_HUNT) { hunt(); return 1; }
 
@@ -855,15 +901,7 @@ int pawcom_parse_statement(Token t) {
             }
         }
         
-        #ifdef _WIN32
-        if (_mkdir(path) != 0 && errno != EEXIST) {
-            setErrorF("Paw: Could not create directory '%s'", path);
-        }
-        #else
-        if (mkdir(path, 0777) != 0 && errno != EEXIST) {
-            setErrorF("Paw: Could not create directory '%s'", path);
-        }
-        #endif
+        mkdir_p(path);
         return 1;
     }
 
@@ -905,7 +943,35 @@ int pawcom_parse_statement(Token t) {
         }
         char cmd[512];
         unescape_string_token(cmdToken, cmd, sizeof(cmd));
-        int result = system(cmd);
+        
+        // If command contains "lynx", replace with full path to self
+        char finalCmd[1024];
+        if (strstr(cmd, "lynx") != NULL) {
+            char exePath[LYNX_MAX_PATH];
+            #ifdef _WIN32
+            GetModuleFileNameA(NULL, exePath, LYNX_MAX_PATH);
+            #else
+            ssize_t len = readlink("/proc/self/exe", exePath, LYNX_MAX_PATH - 1);
+            if (len != -1) exePath[len] = '\0';
+            else exePath[0] = '\0';
+            #endif
+            
+            // Replace "lynx" with full path (first occurrence only)
+            char* pos = strstr(cmd, "lynx");
+            if (pos != NULL) {
+                int before = pos - cmd;
+                strncpy(finalCmd, cmd, before);
+                finalCmd[before] = '\0';
+                strcat(finalCmd, exePath);
+                strcat(finalCmd, pos + 5); // skip "lynx"
+            } else {
+                strcpy(finalCmd, cmd);
+            }
+        } else {
+            strcpy(finalCmd, cmd);
+        }
+        
+        int result = system(finalCmd);
         if (result != 0) {
             setErrorF("Run: Command failed with exit code %d", result);
         }
