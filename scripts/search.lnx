@@ -15,15 +15,14 @@ KittyParseJSON json
 Set count = __json_count
 Set found = 0
 
-Set searchStr = "." + __term + "."
-
 For i = 0 To count - 1 {
     Set key = __json_keys[i]
     Set value = __json_values[i]
     
     KittyCheckIfStringContains key ".description"
     If __result == 1 {
-        KittyCheckIfStringContains key searchStr
+        # Check if the key contains the search term (just the name, no dots)
+        KittyCheckIfStringContains key __term
         If __result == 1 {
             Roar "📦 " + __term + " - " + value
             Set found = found + 1
