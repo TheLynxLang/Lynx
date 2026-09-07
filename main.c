@@ -751,6 +751,11 @@ int main(int argc, char* argv[]) {
                 clearError();
             }
         }
+        #else
+        else if (STRICMP(argv[1], "--update") == 0) {
+            printf("🔄 Linux update: Please download from https://github.com/justdev-chris/Lynx/releases\n");
+            return 0;
+        }
         #endif
         
         // ─── DEBUG TOGGLE ──────────────────────────────────────
@@ -909,4 +914,33 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // ─── REPL MODE ─────────────────────────────────────────
+    // ─── REPL MODE ──────────────────────────────────────────────
+    char line[1024];
+    printf("Lynx Engine %s | Type 'Help' for info\n", LYNX_VERSION);
+    while (1) {
+        printf("lynx > ");
+        if (!fgets(line, sizeof(line), stdin)) break;
+        line[strcspn(line, "\n")] = 0;
+        if (strlen(line) == 0) continue;
+
+        if (STRICMP(line, "help") == 0) {
+            show_help();
+        } else if (STRICMP(line, "exit") == 0) {
+            break;
+        } else if (strstr(line, ".lnx") != NULL) {
+            runFile(line, 0, NULL);
+        } else {
+            initScanner(line);
+            parse_statement();
+            if (lynx_error) {
+                fprintf(stderr, "🐾 %s\n", lynx_error);
+                clearError();
+            }
+        }
+    }
+
+    unload_all_libs();
+    cleanup_all();
+    printf("🐾 Goodbye!\n");
+    return 0;
+}
