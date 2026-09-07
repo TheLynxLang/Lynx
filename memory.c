@@ -56,9 +56,15 @@ Variable* findVar(const char* name) {
     return NULL;
 }
 
-// FIXED: Added debug to see what's happening with setVar
 void setVar(const char* name, double val) {
     printf("🐾 DEBUG setVar: name='%s', value=%f\n", name ? name : "(null)", val);
+    
+    // Special tracking for __json_count
+    if (name && strcmp(name, "__json_count") == 0) {
+        printf("🐾 DEBUG setVar: ⚠️⚠️⚠️ __json_count is being set! value=%f\n", val);
+        // Print stack trace or calling context
+        printf("🐾 DEBUG setVar: __json_count set called from somewhere!\n");
+    }
     
     if (!name || strlen(name) == 0 || strlen(name) > VAR_NAME_MAX) {
         printf("🐾 ERROR: Invalid variable name\n");
@@ -69,7 +75,6 @@ void setVar(const char* name, double val) {
     if (v) {
         printf("🐾 DEBUG setVar: found existing variable '%s', type=%d\n", name, v->type);
         
-        // Free previous string or array data
         if (v->type == VAR_ARRAY) {
             for (int i = 0; i < v->array_capacity; i++) {
                 if (v->value.array[i]) {
@@ -188,7 +193,13 @@ void setVarString(const char* name, const char* value) {
 double getVar(const char* name) {
     if (!name) return 0;
     Variable* v = findVar(name);
-    if (v && v->type == VAR_NUMBER) return v->value.numValue;
+    if (v) {
+        printf("🐾 DEBUG getVar: found '%s', type=%d, numValue=%f\n", name, v->type, v->value.numValue);
+        if (v->type == VAR_NUMBER) {
+            return v->value.numValue;
+        }
+    }
+    printf("🐾 DEBUG getVar: '%s' not found or not a number\n", name);
     return 0;
 }
 
@@ -542,16 +553,16 @@ void cleanup_all() {
 
 // ─── VARIABLE FILE PERSISTENCE ────────────────────────────────
 void save_vars_to_temp() {
-    printf("🐾 DEBUG: save_vars_to_temp() called\n");
+    printf("🐾 DEBUG: save_vars_to_temp() called - DISABLED\n");
     return;
 }
 
 void load_vars_from_temp() {
-    printf("🐾 DEBUG: load_vars_from_temp() called\n");
+    printf("🐾 DEBUG: load_vars_from_temp() called - DISABLED\n");
     return;
 }
 
 void clear_temp_vars() {
-    printf("🐾 DEBUG: clear_temp_vars() called\n");
+    printf("🐾 DEBUG: clear_temp_vars() called - DISABLED\n");
     return;
 }
