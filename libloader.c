@@ -33,9 +33,26 @@ void load_lib(const char* lib_name) {
     }
     
     char path[LYNX_MAX_PATH];
-    snprintf(path, LYNX_MAX_PATH, ".\\lib\\%s.dll", lib_name);
+    HINSTANCE handle = NULL;
     
-    HINSTANCE handle = LoadLibrary(path);
+    // Try 1: libs/<pkgname>.dll
+    #ifdef _WIN32
+    snprintf(path, LYNX_MAX_PATH, ".\\libs\\%s.dll", lib_name);
+    #else
+    snprintf(path, LYNX_MAX_PATH, "./libs/%s.dll", lib_name);
+    #endif
+    handle = LoadLibrary(path);
+    
+    // Try 2: libs/<pkgname>/<pkgname>.dll
+    if (!handle) {
+        #ifdef _WIN32
+        snprintf(path, LYNX_MAX_PATH, ".\\libs\\%s\\%s.dll", lib_name, lib_name);
+        #else
+        snprintf(path, LYNX_MAX_PATH, "./libs/%s/%s.dll", lib_name, lib_name);
+        #endif
+        handle = LoadLibrary(path);
+    }
+    
     if (handle) {
         strncpy(loaded_libs[lib_count].name, lib_name, 63);
         loaded_libs[lib_count].name[63] = '\0';
@@ -43,7 +60,7 @@ void load_lib(const char* lib_name) {
         lib_count++;
         printf("🐾 Loaded library: %s\n", lib_name);
     } else {
-        printf("🐾 Failed to load %s.dll from ./lib/\n", lib_name);
+        printf("🐾 Failed to load %s.dll from ./libs/ or ./libs/%s/\n", lib_name, lib_name);
     }
 }
 
