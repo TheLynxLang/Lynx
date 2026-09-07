@@ -253,6 +253,8 @@ static void json_parse_object(const char** json, JsonObject* obj, const char* pa
             strncpy(full_key, key, sizeof(full_key) - 1);
             full_key[sizeof(full_key) - 1] = '\0';
         }
+        
+        // Parse the value and store it with the full key
         json_parse_value(json, obj, full_key);
         free(key);
         
@@ -815,8 +817,8 @@ int pawcom_parse_statement(Token t) {
             rewind(f);
             char* buf = malloc(size + 1);
             if (buf) {
-                fread(buf, 1, size, f);
-                buf[size] = '\0';
+                size_t bytes_read = fread(buf, 1, size, f);
+                buf[bytes_read] = '\0';
                 fclose(f);
                 setVarString("__file_content", buf);
                 free(buf);
