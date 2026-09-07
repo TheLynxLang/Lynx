@@ -23,6 +23,15 @@ extern LynxError lynx_error_state;
 // ─── GLOBAL TRY/CATCH STATE ──────────────────────────────────
 TryState try_state = {0};
 
+// ─── DIRECTORY HELPER ──────────────────────────────────────────
+static void create_dir(const char* path) {
+    #ifdef _WIN32
+    _mkdir(path);
+    #else
+    mkdir(path, 0777);
+    #endif
+}
+
 void show_help() {
     printf("\n🐾 LYNX %s COMMANDS:\n", LYNX_VERSION);
     printf("\n  init               - Create new Lynx project\n");
@@ -259,11 +268,7 @@ static void pkg_install() {
                 printf("📦 Installing %s (%s)...\n", pkg, version);
                 
                 // Create libs directory if needed
-                #ifdef _WIN32
-                mkdir("libs");
-                #else
-                mkdir("libs", 0777);
-                #endif
+                create_dir("libs");
                 
                 // Download package
                 char url[512];
@@ -387,12 +392,12 @@ static void pkg_publish() {
     char cmd[LYNX_MAX_PATH];
     snprintf(cmd, sizeof(cmd), "rmdir /s /q %s 2>nul", temp_dir);
     system(cmd);
-    mkdir(temp_dir);
+    create_dir(temp_dir);
     #else
     char cmd[LYNX_MAX_PATH];
     snprintf(cmd, sizeof(cmd), "rm -rf %s", temp_dir);
     system(cmd);
-    mkdir(temp_dir, 0777);
+    create_dir(temp_dir);
     #endif
     
     // 4. Copy files to temp directory
