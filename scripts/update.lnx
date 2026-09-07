@@ -1,8 +1,12 @@
 Roar "🐾 Updating packages..."
 
-Run "curl -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
+Run "curl -k -L -o packages.json https://raw.githubusercontent.com/justdev-chris/lynx-registry/main/packages.json"
 
 KittyReadFile "packages.json"
+If __result == 0 {
+    Roar "⚠️ Failed to download packages.json"
+    Return
+}
 Set json = __file_content
 
 KittyParseJSON json
@@ -25,6 +29,10 @@ For i = 1 To json_count {
 }
 
 KittyReadFile "lynx.toml"
+If __result == 0 {
+    Roar "⚠️ lynx.toml not found"
+    Return
+}
 Set content = __file_content
 KittySplitString content "\n"
 Set lines_count = __result_count
