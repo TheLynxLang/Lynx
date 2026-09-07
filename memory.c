@@ -50,13 +50,18 @@ char* getError() {
 // ─── VARIABLE MANAGEMENT ────────────────────────────────────────
 Variable* findVar(const char* name) {
     if (!name) return NULL;
+    int found = -1;
     printf("🐾 DEBUG findVar: searching for '%s'\n", name);
     for (int i = 0; i < varCount; i++) {
-        printf("🐾 DEBUG findVar: den[%d].name='%s'\n", i, den[i].name);
         if (strcmp(den[i].name, name) == 0) {
-            printf("🐾 DEBUG findVar: found '%s' at index %d\n", name, i);
-            return &den[i];
+            found = i;
+            printf("🐾 DEBUG findVar: found at index %d, name='%s', type=%d, numValue=%f\n", 
+                   i, den[i].name, den[i].type, den[i].value.numValue);
         }
+    }
+    if (found >= 0) {
+        printf("🐾 DEBUG findVar: returning index %d\n", found);
+        return &den[found];
     }
     printf("🐾 DEBUG findVar: '%s' NOT found\n", name);
     return NULL;
@@ -65,6 +70,11 @@ Variable* findVar(const char* name) {
 void setVar(const char* name, double val) {
     printf("🐾 DEBUG setVar: name='%s', value=%f\n", name ? name : "(null)", val);
     
+    // Track __json_count specifically
+    if (name && strcmp(name, "__json_count") == 0) {
+        printf("🐾 DEBUG setVar: ⚠️⚠️⚠️ __json_count is being SET! value=%f\n", val);
+    }
+    
     if (!name || strlen(name) == 0 || strlen(name) > VAR_NAME_MAX) {
         printf("🐾 ERROR: Invalid variable name\n");
         return;
@@ -72,9 +82,8 @@ void setVar(const char* name, double val) {
     
     Variable* v = findVar(name);
     if (v) {
-        printf("🐾 DEBUG setVar: found existing variable '%s', type=%d, numValue=%f\n", name, v->type, v->value.numValue);
+        printf("🐾 DEBUG setVar: found existing variable '%s', type=%d, current value=%f\n", name, v->type, v->value.numValue);
         
-        // Free previous string or array data
         if (v->type == VAR_ARRAY) {
             for (int i = 0; i < v->array_capacity; i++) {
                 if (v->value.array[i]) {
