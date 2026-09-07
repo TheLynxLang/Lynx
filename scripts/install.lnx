@@ -13,12 +13,12 @@ If KittyFileExists("lynx.lock") {
     Set lock_lines_count = __result_count
 
     For i = 0 To lock_lines_count - 1 {
-        Set line = __result[i]
+        Set line = __split_[i]
         If line == "" { Continue }
         KittySplitString line "="
         If __result_count >= 2 {
-            Set pkg = Trim(__result[0])
-            Set version = Trim(__result[1])
+            Set pkg = Trim(__split_0)
+            Set version = Trim(__split_1)
             version = KittyReplaceString(version, "\"", "")
 
             Roar "📦 Installing " + pkg + " (" + version + ")"
@@ -59,7 +59,7 @@ Set in_deps = 0
 Set lock_content = ""
 
 For i = 0 To lines_count - 1 {
-    Set line = __split[i]
+    Set line = __split_[i]
 
     KittyCheckIfStringContains line "[dependencies]"
     If __result == 1 {
@@ -76,8 +76,8 @@ For i = 0 To lines_count - 1 {
 
         KittySplitString line "="
         If __result_count >= 2 {
-            Set pkg = Trim(__result[0])
-            Set version = Trim(__result[1])
+            Set pkg = Trim(__split_0)
+            Set version = Trim(__split_1)
             version = KittyReplaceString(version, "\"", "")
 
             Roar "📦 Installing " + pkg + " (" + version + ")"
