@@ -36,4 +36,4 @@ If found > 0 {
 }
 
 Run "rm -f packages.json"
-Run "rm -f " + __json_file
+Run "rm -f /tmp/lynx_json_*.tmp"
