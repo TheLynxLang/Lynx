@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <setjmp.h>
+#include <time.h>
 #include "lynx.h"
 #include "platform.h"
 
@@ -370,11 +371,27 @@ static void kitty_parse_json() {
     const char* json_ptr = jsonStr;
     json_parse_value(&json_ptr, &obj, "");
     
-    // Store results in variables
-    setVar("__json_count", (double)obj.count);
-    for (int i = 0; i < obj.count; i++) {
-        setArrayStringElement("__json_keys", i, obj.keys[i]);
-        setArrayStringElement("__json_values", i, obj.values[i]);
+    // ─── STORE RESULTS IN TEMP FILE ──────────────────────────
+    char tempFile[LYNX_MAX_PATH];
+    #ifdef _WIN32
+    const char* tempDir = getenv("TEMP");
+    if (!tempDir) tempDir = ".";
+    snprintf(tempFile, sizeof(tempFile), "%s\\lynx_json_%d.tmp", tempDir, (int)time(NULL));
+    #else
+    snprintf(tempFile, sizeof(tempFile), "/tmp/lynx_json_%d.tmp", (int)time(NULL));
+    #endif
+    
+    FILE* f = fopen(tempFile, "w");
+    if (f) {
+        fprintf(f, "%d\n", obj.count);
+        for (int i = 0; i < obj.count; i++) {
+            // Escape pipe characters in keys and values
+            fprintf(f, "%s|%s\n", obj.keys[i], obj.values[i]);
+        }
+        fclose(f);
+        setVarString("__json_file", tempFile);
+    } else {
+        setErrorF("Could not create temp file for JSON data");
     }
     
     json_object_free(&obj);
