@@ -30,6 +30,9 @@ int lynx_debug_mode = 1;  // 1 = on (default), 0 = off
 #define DEBUG_PRINT(fmt, ...) \
     do { if (lynx_debug_mode) { printf("🐾 DEBUG " fmt, ##__VA_ARGS__); } } while(0)
 
+// ─── CONFIG PATH ─────────────────────────────────────────────────
+#define CONFIG_PATH ".lynx/config"
+
 // ─── DIRECTORY HELPER ──────────────────────────────────────────
 static void create_dir(const char* path) {
     #ifdef _WIN32
@@ -83,6 +86,89 @@ static void mkdir_p(const char* path) {
     #else
     mkdir(tmp, 0777);
     #endif
+}
+
+// ─── CONFIG LOADING ─────────────────────────────────────────────
+static void load_config() {
+    char config_path[LYNX_MAX_PATH];
+    char* home = NULL;
+    
+    #ifdef _WIN32
+    home = getenv("USERPROFILE");
+    if (!home) home = getenv("HOME");
+    #else
+    home = getenv("HOME");
+    #endif
+    
+    if (home) {
+        snprintf(config_path, sizeof(config_path), "%s/%s", home, CONFIG_PATH);
+    } else {
+        snprintf(config_path, sizeof(config_path), "%s", CONFIG_PATH);
+    }
+    
+    FILE* f = fopen(config_path, "r");
+    if (!f) {
+        // No config file - use default (debug ON)
+        lynx_debug_mode = 1;
+        return;
+    }
+    
+    char line[256];
+    while (fgets(line, sizeof(line), f)) {
+        // Remove newline
+        line[strcspn(line, "\n")] = 0;
+        
+        // Parse "debug = on" or "debug = off"
+        if (strstr(line, "debug") != NULL) {
+            char* equals = strchr(line, '=');
+            if (equals) {
+                char* value = equals + 1;
+                while (isspace(*value)) value++;
+                if (strcmp(value, "on") == 0 || strcmp(value, "true") == 0 || strcmp(value, "1") == 0) {
+                    lynx_debug_mode = 1;
+                } else if (strcmp(value, "off") == 0 || strcmp(value, "false") == 0 || strcmp(value, "0") == 0) {
+                    lynx_debug_mode = 0;
+                }
+            }
+        }
+    }
+    
+    fclose(f);
+}
+
+// ─── SAVE CONFIG ─────────────────────────────────────────────────
+static void save_config() {
+    char config_path[LYNX_MAX_PATH];
+    char* home = NULL;
+    
+    #ifdef _WIN32
+    home = getenv("USERPROFILE");
+    if (!home) home = getenv("HOME");
+    #else
+    home = getenv("HOME");
+    #endif
+    
+    if (home) {
+        snprintf(config_path, sizeof(config_path), "%s/%s", home, CONFIG_PATH);
+    } else {
+        snprintf(config_path, sizeof(config_path), "%s", CONFIG_PATH);
+    }
+    
+    // Create .lynx directory if it doesn't exist
+    char dir_path[LYNX_MAX_PATH];
+    #ifdef _WIN32
+    snprintf(dir_path, sizeof(dir_path), "%s\\.lynx", home ? home : ".");
+    #else
+    snprintf(dir_path, sizeof(dir_path), "%s/.lynx", home ? home : ".");
+    #endif
+    mkdir_p(dir_path);
+    
+    FILE* f = fopen(config_path, "w");
+    if (f) {
+        fprintf(f, "# Lynx configuration\n");
+        fprintf(f, "debug = %s\n", lynx_debug_mode ? "on" : "off");
+        fclose(f);
+    }
 }
 
 void show_help() {
@@ -425,10 +511,11 @@ static void pkg_install() {
                         continue;
                     }
                     
-                    // Extract
+                    // Extract - cross-platform cleanup
                     snprintf(cmd, sizeof(cmd), "tar -xzf %s -C libs/%s/", dest, pkg);
                     system(cmd);
-                    remove(dest);  // C function, works everywhere!
+                    remove(dest);  // C function, works everywhere
+                    
                     printf("✅ Installed %s\n", pkg);
                     installed++;
                 } else {
@@ -718,6 +805,9 @@ int main(int argc, char* argv[]) {
     SetConsoleOutputCP(65001);
     #endif
     
+    // Load config FIRST
+    load_config();
+    
     lynx_error_state.message = NULL;
     lynx_error_state.line = 0;
     lynx_error_state.col = 0;
@@ -737,31 +827,83 @@ int main(int argc, char* argv[]) {
             printf("Lynx Engine %s\n", LYNX_VERSION);
             return 0;
         }
-        #ifdef _WIN32
+        // ─── SELF-UPDATE WITH VERSION CHECK ──────────────────────
         else if (STRICMP(argv[1], "--update") == 0) {
-            printf("🔄 Preparing update...\n");
-            char tempInstaller[LYNX_MAX_PATH];
-            sprintf(tempInstaller, "%s\\LynxInstaller.exe", getenv("TEMP"));
-            const char* url = "https://github.com/TheLynxLang/Lynx/releases/latest/download/LynxInstaller.exe";
-            if (S_OK == URLDownloadToFileA(NULL, url, tempInstaller, 0, NULL)) {
-                ShellExecuteA(NULL, "open", tempInstaller, NULL, NULL, SW_SHOWNORMAL);
-                exit(0);
+            #ifdef _WIN32
+            printf("🔍 Checking for updates...\n");
+            
+            // Get latest version from GitHub API
+            system("curl -k -L -o latest.json https://api.github.com/repos/TheLynxLang/Lynx/releases/latest --ssl-no-revoke");
+            char* json = read_file_content("latest.json");
+            
+            if (json) {
+                char latest_version[64] = {0};
+                char* tag = strstr(json, "\"tag_name\"");
+                if (tag) {
+                    sscanf(tag, "\"tag_name\": \"%[^\"]\"", latest_version);
+                    // Remove 'v' prefix if present
+                    char* v = latest_version;
+                    if (v[0] == 'v') v++;
+                    
+                    // Compare versions (simple string compare, works for x.y.z)
+                    char current[64];
+                    strcpy(current, LYNX_VERSION);
+                    
+                    if (strcmp(v, current) > 0) {
+                        printf("🔄 New version %s available! Current: %s\n", v, current);
+                        printf("📥 Downloading update...\n");
+                        
+                        char tempInstaller[LYNX_MAX_PATH];
+                        sprintf(tempInstaller, "%s\\LynxInstaller.exe", getenv("TEMP"));
+                        const char* url = "https://github.com/TheLynxLang/Lynx/releases/latest/download/LynxInstaller.exe";
+                        if (S_OK == URLDownloadToFileA(NULL, url, tempInstaller, 0, NULL)) {
+                            ShellExecuteA(NULL, "open", tempInstaller, NULL, NULL, SW_SHOWNORMAL);
+                            exit(0);
+                        } else {
+                            setErrorF("Update failed: Could not download installer");
+                            fprintf(stderr, "🐾 %s\n", lynx_error);
+                            clearError();
+                        }
+                    } else {
+                        printf("✅ Lynx is already up to date (v%s)\n", current);
+                    }
+                } else {
+                    printf("⚠️ Could not parse version information\n");
+                }
+                free(json);
+                remove("latest.json");
             } else {
-                setErrorF("Update failed: Could not download installer");
-                fprintf(stderr, "🐾 %s\n", lynx_error);
-                clearError();
+                printf("❌ Failed to check for updates\n");
             }
-        }
-        #else
-        else if (STRICMP(argv[1], "--update") == 0) {
-            printf("🔄 Linux update: Please download from https://github.com/TheLynxLang/Lynx/releases\n");
             return 0;
+            #else
+            // Linux version
+            printf("🔍 Checking for updates...\n");
+            system("curl -k -L -o latest.json https://api.github.com/repos/TheLynxLang/Lynx/releases/latest");
+            char* json = read_file_content("latest.json");
+            if (json) {
+                char latest_version[64] = {0};
+                char* tag = strstr(json, "\"tag_name\"");
+                if (tag) {
+                    sscanf(tag, "\"tag_name\": \"%[^\"]\"", latest_version);
+                    char* v = latest_version;
+                    if (v[0] == 'v') v++;
+                    printf("📦 Latest version: %s\n", v);
+                    printf("   Download from: https://github.com/TheLynxLang/Lynx/releases\n");
+                }
+                free(json);
+                remove("latest.json");
+            } else {
+                printf("❌ Failed to check for updates\n");
+            }
+            return 0;
+            #endif
         }
-        #endif
         
         // ─── DEBUG TOGGLE ──────────────────────────────────────
         else if (STRICMP(argv[1], "debug") == 0) {
             lynx_debug_mode = !lynx_debug_mode;
+            save_config();  // Save to file
             printf("🐾 Debug mode: %s\n", lynx_debug_mode ? "ON" : "OFF");
             return 0;
         }
