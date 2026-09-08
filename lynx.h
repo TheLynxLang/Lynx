@@ -101,7 +101,8 @@ typedef struct {
 typedef enum {
     VAR_NUMBER,
     VAR_STRING,
-    VAR_ARRAY
+    VAR_ARRAY,
+    VAR_DLL_FUNC     // <-- ADD THIS
 } VarType;
 
 typedef struct Variable {
@@ -111,6 +112,7 @@ typedef struct Variable {
         double numValue;
         char* strValue;
         struct Variable** array;
+        void* funcPtr;      // <-- ADD THIS for DLL functions
     } value;
     int array_length;
     int array_capacity;
@@ -122,6 +124,7 @@ typedef struct {
     union {
         double numValue;
         char* strValue;
+        void* funcPtr;      // <-- ADD THIS
     } value;
 } Value;
 
@@ -162,6 +165,11 @@ extern TryState try_state;
 extern int preserve_vars;
 extern int lynx_return_flag;
 extern double lynx_return_value;
+
+// ─── DLL REGISTRATION ──────────────────────────────────────────
+void lynx_register_func(const char* name, void* func);
+void* lynx_find_func(const char* name);
+void lynx_list_funcs();
 
 // ─── FUNCTIONS ──────────────────────────────────────────────────
 void initScanner(const char* source);
