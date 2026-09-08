@@ -92,6 +92,7 @@ void setVar(const char* name, double val) {
         v->value.numValue = val;
         v->array_length = 0;
         v->array_capacity = 0;
+        printf("🐾 DEBUG setVar: updated '%s' = %.6g\n", name, val);
         return;
     }
     
@@ -105,6 +106,7 @@ void setVar(const char* name, double val) {
         den[varCount].value.funcPtr = NULL;
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
+        printf("🐾 DEBUG setVar: created '%s' = %.6g (varCount=%d)\n", name, val, varCount);
         varCount++;
     } else {
         printf("🐾 ERROR: Max variables (%d) exceeded\n", MAX_VARS);
@@ -116,12 +118,20 @@ void setVarString(const char* name, const char* value) {
         printf("🐾 ERROR: setVarString called with invalid name\n");
         return;
     }
-    if (!value) value = "";
+    if (!value) {
+        printf("🐾 DEBUG setVarString: value is NULL for '%s', using empty string\n", name);
+        value = "";
+    }
+    
+    printf("🐾 DEBUG setVarString: name='%s', value='%s'\n", name, value);
     
     Variable* v = findVar(name);
     if (v) {
+        printf("🐾 DEBUG setVarString: found existing variable '%s', type=%d\n", name, v->type);
+        
         // Free old string if it was a string
         if (v->type == VAR_STRING && v->value.strValue) {
+            printf("🐾 DEBUG setVarString: freeing old string '%s'\n", v->value.strValue);
             free(v->value.strValue);
             v->value.strValue = NULL;
         }
@@ -147,6 +157,7 @@ void setVarString(const char* name, const char* value) {
         v->value.strValue = malloc(strlen(value) + 1);
         if (v->value.strValue) {
             strcpy(v->value.strValue, value);
+            printf("🐾 DEBUG setVarString: updated '%s' = '%s'\n", name, v->value.strValue);
         } else {
             printf("🐾 ERROR: Out of memory for string\n");
             v->value.strValue = NULL;
@@ -156,6 +167,8 @@ void setVarString(const char* name, const char* value) {
         return;
     }
     
+    printf("🐾 DEBUG setVarString: creating new variable '%s'\n", name);
+    
     if (varCount < MAX_VARS) {
         strncpy(den[varCount].name, name, VAR_NAME_MAX);
         den[varCount].name[VAR_NAME_MAX] = '\0';
@@ -163,6 +176,7 @@ void setVarString(const char* name, const char* value) {
         den[varCount].value.strValue = malloc(strlen(value) + 1);
         if (den[varCount].value.strValue) {
             strcpy(den[varCount].value.strValue, value);
+            printf("🐾 DEBUG setVarString: created '%s' = '%s'\n", name, den[varCount].value.strValue);
         } else {
             printf("🐾 ERROR: Out of memory for string\n");
             den[varCount].value.strValue = NULL;
@@ -172,6 +186,7 @@ void setVarString(const char* name, const char* value) {
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
         varCount++;
+        printf("🐾 DEBUG setVarString: varCount now = %d\n", varCount);
     } else {
         printf("🐾 ERROR: Max variables (%d) exceeded\n", MAX_VARS);
     }
@@ -187,11 +202,21 @@ double getVar(const char* name) {
 }
 
 char* getVarString(const char* name) {
-    if (!name) return "";
+    if (!name) {
+        printf("🐾 DEBUG getVarString: name is NULL\n");
+        return "";
+    }
     Variable* v = findVar(name);
-    if (v && v->type == VAR_STRING && v->value.strValue) {
+    if (!v) {
+        printf("🐾 DEBUG getVarString: '%s' NOT found\n", name);
+        return "";
+    }
+    printf("🐾 DEBUG getVarString: found '%s', type=%d\n", name, v->type);
+    if (v->type == VAR_STRING && v->value.strValue) {
+        printf("🐾 DEBUG getVarString: returning '%s'\n", v->value.strValue);
         return v->value.strValue;
     }
+    printf("🐾 DEBUG getVarString: '%s' is not a string (type=%d)\n", name, v->type);
     return "";
 }
 
