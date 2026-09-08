@@ -18,6 +18,11 @@ int loaded_pkg_count = 0;
 #define STR_REPLACE_BUFFER_SIZE 65536
 static char str_replace_buffer[STR_REPLACE_BUFFER_SIZE];
 
+// ─── DLL FUNCTION TYPES ──────────────────────────────────────────
+typedef const char* (*DllFuncStr)(const char*);
+typedef int (*DllFuncInt)(const char*);
+typedef void (*DllFuncVoid)(int);
+
 // ─── SAFE TOKEN TO STRING HELPER ───────────────────────────────
 static void safe_token_to_string(Token t, char* out, size_t outlen) {
     if (!out || outlen < 1) return;
@@ -252,6 +257,112 @@ static Value parse_primary() {
         char varName[64];
         safe_token_to_string(t, varName, sizeof(varName));
         printf("🐾 DEBUG parse_primary: identifier '%s'\n", varName);
+        
+        // ─── CHECK REGISTERED DLL FUNCTIONS FIRST ──────────
+        void* func = lynx_find_func(varName);
+        if (func) {
+            printf("🐾 DEBUG parse_primary: '%s' is a registered DLL function\n", varName);
+            
+            // Check if it's a function call (followed by '(')
+            if (peekToken().type == TOKEN_LPAREN) {
+                scanToken(); // consume '('
+                
+                // Parse arguments (for now, support string, number, or identifier)
+                char argStr[4096] = {0};
+                int argCount = 0;
+                
+                if (peekToken().type != TOKEN_RPAREN) {
+                    // Parse first argument
+                    Token arg = scanToken();
+                    
+                    if (arg.type == TOKEN_STRING) {
+                        unescape_string_token(arg, argStr, sizeof(argStr));
+                    } else if (arg.type == TOKEN_NUMBER) {
+                        snprintf(argStr, sizeof(argStr), "%s", arg.start);
+                    } else if (arg.type == TOKEN_IDENTIFIER) {
+                        char name[64];
+                        safe_token_to_string(arg, name, sizeof(name));
+                        char* val = getVarString(name);
+                        if (val && strlen(val) > 0) {
+                            strcpy(argStr, val);
+                        } else {
+                            double num = getVar(name);
+                            snprintf(argStr, sizeof(argStr), "%.5f", num);
+                        }
+                    } else {
+                        setErrorF("DLL function expects string, number, or variable argument");
+                        return result;
+                    }
+                    argCount = 1;
+                    
+                    // Check for comma (more arguments)
+                    if (peekToken().type == TOKEN_COMMA) {
+                        scanToken(); // consume ','
+                        // For now, just concatenate - proper multiple args later
+                        char secondArg[4096] = {0};
+                        Token arg2 = scanToken();
+                        if (arg2.type == TOKEN_STRING) {
+                            unescape_string_token(arg2, secondArg, sizeof(secondArg));
+                            strcat(argStr, "|");
+                            strcat(argStr, secondArg);
+                        } else if (arg2.type == TOKEN_NUMBER) {
+                            strcat(argStr, "|");
+                            strcat(argStr, arg2.start);
+                        } else if (arg2.type == TOKEN_IDENTIFIER) {
+                            char name[64];
+                            safe_token_to_string(arg2, name, sizeof(name));
+                            char* val = getVarString(name);
+                            if (val && strlen(val) > 0) {
+                                strcat(argStr, "|");
+                                strcat(argStr, val);
+                            }
+                        }
+                    }
+                }
+                
+                // Expect ')'
+                if (peekToken().type != TOKEN_RPAREN) {
+                    setErrorF("Expected ')'");
+                    return result;
+                }
+                scanToken(); // consume ')'
+                
+                // Call the DLL function
+                // Try different function signatures
+                const char* ret = NULL;
+                
+                // Try string->string
+                DllFuncStr func_str = (DllFuncStr)func;
+                ret = func_str(argStr);
+                
+                // Store result in __result
+                if (ret) {
+                    setVarString("__result", ret);
+                    
+                    // Return as string
+                    result.type = VAR_STRING;
+                    result.value.strValue = malloc(strlen(ret) + 1);
+                    if (result.value.strValue) {
+                        strcpy(result.value.strValue, ret);
+                    }
+                } else {
+                    setVarString("__result", "");
+                    result.type = VAR_STRING;
+                    result.value.strValue = malloc(1);
+                    if (result.value.strValue) {
+                        result.value.strValue[0] = '\0';
+                    }
+                }
+                return result;
+            }
+            
+            // Just the function name (no parentheses) - return as DLL function
+            result.type = VAR_DLL_FUNC;
+            result.value.funcPtr = func;
+            return result;
+        }
+        
+        // ─── THEN CHECK NORMAL VARIABLES ────────────────────
         Variable* v = findVar(varName);
         if (v) {
             printf("🐾 DEBUG parse_primary: found '%s', type=%d, numValue=%f\n", varName, v->type, v->value.numValue);
@@ -270,6 +381,11 @@ static Value parse_primary() {
                     result.type = VAR_NUMBER;
                     result.value.numValue = 0;
                 }
+            } else if (v->type == VAR_DLL_FUNC) {
+                // This is a DLL function stored in a variable
+                result.type = VAR_DLL_FUNC;
+                result.value.funcPtr = v->value.funcPtr;
+                return result;
             }
         } else {
             printf("🐾 DEBUG parse_primary: '%s' NOT found by findVar\n", varName);
