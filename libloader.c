@@ -16,26 +16,12 @@ typedef struct {
     HINSTANCE handle;
 } LoadedLib;
 
-typedef struct {
-    char name[64];
-    void* func;
-} RegisteredFunc;
-
 // ─── GLOBALS ──────────────────────────────────────────────────
 LoadedLib loaded_libs[32];
 int lib_count = 0;
 
 RegisteredFunc registered_funcs[256];
 int registered_count = 0;
-
-// ─── HELPER: Extract filename from path ─────────────────────────
-static const char* get_filename(const char* path) {
-    if (!path) return "";
-    const char* last = strrchr(path, '/');
-    const char* last2 = strrchr(path, '\\');
-    if (last2 > last) last = last2;
-    return last ? last + 1 : path;
-}
 
 // ─── HELPER: Remove extension ───────────────────────────────────
 static void strip_extension(char* str) {
@@ -49,6 +35,28 @@ static int file_exists(const char* path) {
     FILE* f = fopen(path, "r");
     if (f) { fclose(f); return 1; }
     return 0;
+}
+
+// ─── REGISTER FUNCTION (called by DLL) ──────────────────────────
+void lynx_register_func(const char* name, void* func) {
+    if (!name || !func) return;
+    if (registered_count >= 256) {
+        printf("🐾 Error: Max registered functions (256) exceeded\n");
+        return;
+    }
+    
+    // Check if already registered
+    for (int i = 0; i < registered_count; i++) {
+        if (strcmp(registered_funcs[i].name, name) == 0) {
+            registered_funcs[i].func = func;
+            return;
+        }
+    }
+    
+    strncpy(registered_funcs[registered_count].name, name, 63);
+    registered_funcs[registered_count].name[63] = '\0';
+    registered_funcs[registered_count].func = func;
+    registered_count++;
 }
 
 // ─── FIND REGISTERED FUNCTION ────────────────────────────────────
@@ -73,30 +81,7 @@ void lynx_list_funcs() {
     }
 }
 
-// ─── REGISTER A SINGLE FUNCTION ─────────────────────────────────
-static void register_func(const char* name, void* func) {
-    if (!name || !func) return;
-    if (registered_count >= 256) {
-        printf("🐾 Error: Max registered functions (256) exceeded\n");
-        return;
-    }
-    
-    // Check if already registered
-    for (int i = 0; i < registered_count; i++) {
-        if (strcmp(registered_funcs[i].name, name) == 0) {
-            registered_funcs[i].func = func;
-            return;
-        }
-    }
-    
-    strncpy(registered_funcs[registered_count].name, name, 63);
-    registered_funcs[registered_count].name[63] = '\0';
-    registered_funcs[registered_count].func = func;
-    registered_count++;
-    printf("🐾 Registered function: %s\n", name);
-}
-
-// ─── LOAD LIBRARY AND REGISTER FUNCTIONS ────────────────────────
+// ─── LOAD LIBRARY ───────────────────────────────────────────────
 void load_lib(const char* lib_name) {
     if (!lib_name || strlen(lib_name) == 0) {
         printf("🐾 Error: Invalid library name\n");
@@ -233,24 +218,24 @@ void load_lib(const char* lib_name) {
     printf("🐾 Loaded library: %s\n", lib_name);
     
     // ─── REGISTER ALL EXPORTED FUNCTIONS ───────────────────────
-    // Option 1: Look for lynx_init() in the DLL (recommended)
+    // Look for lynx_init() in the DLL
     typedef void (*LynxInitFunc)(void (*)(const char*, void*));
     LynxInitFunc init_func = (LynxInitFunc)GetProcAddress(handle, "lynx_init");
     
     if (init_func) {
         printf("🐾 Initializing %s...\n", lib_name);
-        init_func(register_func);
+        init_func(lynx_register_func);
         printf("🐾 Registered %d functions from %s\n", registered_count, lib_name);
     } else {
-        // Option 2: Try to register common functions by name
+        // Try to register common functions by name
         printf("🐾 No lynx_init() found in %s\n", lib_name);
         printf("   Trying to register common functions...\n");
         
         // List of common function names to try
         const char* common_funcs[] = {
-            "listdir", "getenv_c", "system_c", "mkdir_c", 
-            "remove_c", "rename_c", "getcwd_c", "exists_c", 
-            "sleep_c", "chdir_c", "read_file_c", "write_file_c",
+            "prowl", "sniff", "hiss", "pad",
+            "scratch", "claw", "bat", "tail",
+            "whisker", "nap",
             NULL
         };
         
@@ -258,7 +243,7 @@ void load_lib(const char* lib_name) {
         for (int i = 0; common_funcs[i] != NULL; i++) {
             void* func = GetProcAddress(handle, common_funcs[i]);
             if (func) {
-                register_func(common_funcs[i], func);
+                lynx_register_func(common_funcs[i], func);
                 registered++;
             }
         }
