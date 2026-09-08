@@ -39,8 +39,7 @@ static int recursionDepth = 0;
 // ─── TEMP FILE PATH ─────────────────────────────────────────────
 static char tempVarPath[LYNX_MAX_PATH];
 
-// ─── DLL FUNCTION REGISTRY (from libloader.c) ──────────────────
-// These are defined in libloader.c - we just need to use them
+// ─── DLL REGISTRATION (from libloader.c) ──────────────────────
 extern RegisteredFunc registered_funcs[];
 extern int registered_count;
 
@@ -55,26 +54,15 @@ char* getError() {
 // ─── VARIABLE MANAGEMENT ────────────────────────────────────────
 Variable* findVar(const char* name) {
     if (!name) return NULL;
-    int found = -1;
-    printf("🐾 DEBUG findVar: searching for '%s'\n", name);
     for (int i = 0; i < varCount; i++) {
         if (strcmp(den[i].name, name) == 0) {
-            found = i;
-            printf("🐾 DEBUG findVar: found at index %d, name='%s', type=%d, numValue=%f\n", 
-                   i, den[i].name, den[i].type, den[i].value.numValue);
+            return &den[i];
         }
     }
-    if (found >= 0) {
-        printf("🐾 DEBUG findVar: returning index %d\n", found);
-        return &den[found];
-    }
-    printf("🐾 DEBUG findVar: '%s' NOT found\n", name);
     return NULL;
 }
 
 void setVar(const char* name, double val) {
-    printf("🐾 DEBUG setVar: name='%s', value=%f\n", name ? name : "(null)", val);
-    
     if (!name || strlen(name) == 0 || strlen(name) > VAR_NAME_MAX) {
         printf("🐾 ERROR: Invalid variable name\n");
         return;
@@ -82,41 +70,31 @@ void setVar(const char* name, double val) {
     
     Variable* v = findVar(name);
     if (v) {
-        printf("🐾 DEBUG setVar: found existing variable '%s', type=%d, current value=%f\n", name, v->type, v->value.numValue);
-        
-        if (v->type == VAR_ARRAY) {
+        // Free old string if it was a string
+        if (v->type == VAR_STRING && v->value.strValue) {
+            free(v->value.strValue);
+            v->value.strValue = NULL;
+        }
+        // Free array if it was an array
+        if (v->type == VAR_ARRAY && v->value.array) {
             for (int i = 0; i < v->array_capacity; i++) {
                 if (v->value.array[i]) {
                     if (v->value.array[i]->type == VAR_STRING && v->value.array[i]->value.strValue) {
                         free(v->value.array[i]->value.strValue);
-                        v->value.array[i]->value.strValue = NULL;
                     }
                     free(v->value.array[i]);
-                    v->value.array[i] = NULL;
                 }
             }
             free(v->value.array);
             v->value.array = NULL;
         }
-        if (v->type == VAR_STRING && v->value.strValue) {
-            printf("🐾 DEBUG setVar: freeing old string '%s'\n", v->value.strValue);
-            free(v->value.strValue);
-            v->value.strValue = NULL;
-        }
-        // If it was a DLL function, clear it
-        if (v->type == VAR_DLL_FUNC) {
-            v->value.funcPtr = NULL;
-        }
         v->type = VAR_NUMBER;
         v->value.numValue = val;
         v->array_length = 0;
         v->array_capacity = 0;
-        v->value.array = NULL;
-        printf("🐾 DEBUG setVar: set '%s' = %f (number)\n", name, val);
         return;
     }
     
-    printf("🐾 DEBUG setVar: creating new variable '%s'\n", name);
     if (varCount < MAX_VARS) {
         strncpy(den[varCount].name, name, VAR_NAME_MAX);
         den[varCount].name[VAR_NAME_MAX] = '\0';
@@ -128,15 +106,12 @@ void setVar(const char* name, double val) {
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
         varCount++;
-        printf("🐾 DEBUG setVar: created new variable '%s' = %f, varCount=%d\n", name, val, varCount);
     } else {
         printf("🐾 ERROR: Max variables (%d) exceeded\n", MAX_VARS);
     }
 }
 
 void setVarString(const char* name, const char* value) {
-    printf("🐾 DEBUG setVarString: name='%s', value='%s'\n", name ? name : "(null)", value ? value : "(null)");
-    
     if (!name || strlen(name) == 0 || strlen(name) > VAR_NAME_MAX) {
         printf("🐾 ERROR: setVarString called with invalid name\n");
         return;
@@ -145,26 +120,23 @@ void setVarString(const char* name, const char* value) {
     
     Variable* v = findVar(name);
     if (v) {
-        printf("🐾 DEBUG setVarString: found existing variable '%s', type=%d\n", name, v->type);
-        
-        if (v->type == VAR_ARRAY) {
+        // Free old string if it was a string
+        if (v->type == VAR_STRING && v->value.strValue) {
+            free(v->value.strValue);
+            v->value.strValue = NULL;
+        }
+        // Free array if it was an array
+        if (v->type == VAR_ARRAY && v->value.array) {
             for (int i = 0; i < v->array_capacity; i++) {
                 if (v->value.array[i]) {
                     if (v->value.array[i]->type == VAR_STRING && v->value.array[i]->value.strValue) {
                         free(v->value.array[i]->value.strValue);
-                        v->value.array[i]->value.strValue = NULL;
                     }
                     free(v->value.array[i]);
-                    v->value.array[i] = NULL;
                 }
             }
             free(v->value.array);
             v->value.array = NULL;
-        }
-        if (v->type == VAR_STRING && v->value.strValue) {
-            printf("🐾 DEBUG setVarString: freeing old string '%s'\n", v->value.strValue);
-            free(v->value.strValue);
-            v->value.strValue = NULL;
         }
         // If it was a DLL function, clear it
         if (v->type == VAR_DLL_FUNC) {
@@ -175,7 +147,6 @@ void setVarString(const char* name, const char* value) {
         v->value.strValue = malloc(strlen(value) + 1);
         if (v->value.strValue) {
             strcpy(v->value.strValue, value);
-            printf("🐾 DEBUG setVarString: set '%s' = '%s'\n", name, v->value.strValue);
         } else {
             printf("🐾 ERROR: Out of memory for string\n");
             v->value.strValue = NULL;
@@ -185,8 +156,6 @@ void setVarString(const char* name, const char* value) {
         return;
     }
     
-    printf("🐾 DEBUG setVarString: creating new variable '%s'\n", name);
-    
     if (varCount < MAX_VARS) {
         strncpy(den[varCount].name, name, VAR_NAME_MAX);
         den[varCount].name[VAR_NAME_MAX] = '\0';
@@ -194,16 +163,15 @@ void setVarString(const char* name, const char* value) {
         den[varCount].value.strValue = malloc(strlen(value) + 1);
         if (den[varCount].value.strValue) {
             strcpy(den[varCount].value.strValue, value);
-            printf("🐾 DEBUG setVarString: created '%s' = '%s'\n", name, den[varCount].value.strValue);
         } else {
             printf("🐾 ERROR: Out of memory for string\n");
             den[varCount].value.strValue = NULL;
         }
+        den[varCount].value.array = NULL;
+        den[varCount].value.funcPtr = NULL;
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
-        den[varCount].value.funcPtr = NULL;
         varCount++;
-        printf("🐾 DEBUG setVarString: varCount now = %d\n", varCount);
     } else {
         printf("🐾 ERROR: Max variables (%d) exceeded\n", MAX_VARS);
     }
@@ -212,31 +180,17 @@ void setVarString(const char* name, const char* value) {
 double getVar(const char* name) {
     if (!name) return 0;
     Variable* v = findVar(name);
-    if (v) {
-        printf("🐾 DEBUG getVar: found '%s', type=%d, numValue=%f\n", name, v->type, v->value.numValue);
-        if (v->type == VAR_NUMBER) {
-            return v->value.numValue;
-        }
-        // If it's a DLL function, return 0 (can't convert to number)
-        if (v->type == VAR_DLL_FUNC) {
-            return 0;
-        }
+    if (v && v->type == VAR_NUMBER) {
+        return v->value.numValue;
     }
-    printf("🐾 DEBUG getVar: '%s' not found or not a number\n", name);
     return 0;
 }
 
 char* getVarString(const char* name) {
     if (!name) return "";
     Variable* v = findVar(name);
-    if (v) {
-        if (v->type == VAR_STRING && v->value.strValue) {
-            return v->value.strValue;
-        }
-        // If it's a DLL function, return empty string
-        if (v->type == VAR_DLL_FUNC) {
-            return "";
-        }
+    if (v && v->type == VAR_STRING && v->value.strValue) {
+        return v->value.strValue;
     }
     return "";
 }
@@ -586,16 +540,13 @@ void cleanup_all() {
 
 // ─── VARIABLE FILE PERSISTENCE ────────────────────────────────
 void save_vars_to_temp() {
-    printf("🐾 DEBUG: save_vars_to_temp() called - DISABLED\n");
     return;
 }
 
 void load_vars_from_temp() {
-    printf("🐾 DEBUG: load_vars_from_temp() called - DISABLED\n");
     return;
 }
 
 void clear_temp_vars() {
-    printf("🐾 DEBUG: clear_temp_vars() called - DISABLED\n");
     return;
 }
