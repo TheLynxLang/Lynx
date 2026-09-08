@@ -39,6 +39,11 @@ static int recursionDepth = 0;
 // ─── TEMP FILE PATH ─────────────────────────────────────────────
 static char tempVarPath[LYNX_MAX_PATH];
 
+// ─── DLL FUNCTION REGISTRY (from libloader.c) ──────────────────
+// These are defined in libloader.c - we just need to use them
+extern RegisteredFunc registered_funcs[];
+extern int registered_count;
+
 // ─── ERROR STATE (storage only) ─────────────────────────────────
 char* getError() {
     if (lynx_error_state.message) {
@@ -70,11 +75,6 @@ Variable* findVar(const char* name) {
 void setVar(const char* name, double val) {
     printf("🐾 DEBUG setVar: name='%s', value=%f\n", name ? name : "(null)", val);
     
-    // Track __json_count specifically
-    if (name && strcmp(name, "__json_count") == 0) {
-        printf("🐾 DEBUG setVar: ⚠️⚠️⚠️ __json_count is being SET! value=%f\n", val);
-    }
-    
     if (!name || strlen(name) == 0 || strlen(name) > VAR_NAME_MAX) {
         printf("🐾 ERROR: Invalid variable name\n");
         return;
@@ -103,6 +103,10 @@ void setVar(const char* name, double val) {
             free(v->value.strValue);
             v->value.strValue = NULL;
         }
+        // If it was a DLL function, clear it
+        if (v->type == VAR_DLL_FUNC) {
+            v->value.funcPtr = NULL;
+        }
         v->type = VAR_NUMBER;
         v->value.numValue = val;
         v->array_length = 0;
@@ -120,6 +124,7 @@ void setVar(const char* name, double val) {
         den[varCount].value.numValue = val;
         den[varCount].value.strValue = NULL;
         den[varCount].value.array = NULL;
+        den[varCount].value.funcPtr = NULL;
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
         varCount++;
@@ -161,6 +166,10 @@ void setVarString(const char* name, const char* value) {
             free(v->value.strValue);
             v->value.strValue = NULL;
         }
+        // If it was a DLL function, clear it
+        if (v->type == VAR_DLL_FUNC) {
+            v->value.funcPtr = NULL;
+        }
         
         v->type = VAR_STRING;
         v->value.strValue = malloc(strlen(value) + 1);
@@ -192,6 +201,7 @@ void setVarString(const char* name, const char* value) {
         }
         den[varCount].array_length = 0;
         den[varCount].array_capacity = 0;
+        den[varCount].value.funcPtr = NULL;
         varCount++;
         printf("🐾 DEBUG setVarString: varCount now = %d\n", varCount);
     } else {
@@ -207,6 +217,10 @@ double getVar(const char* name) {
         if (v->type == VAR_NUMBER) {
             return v->value.numValue;
         }
+        // If it's a DLL function, return 0 (can't convert to number)
+        if (v->type == VAR_DLL_FUNC) {
+            return 0;
+        }
     }
     printf("🐾 DEBUG getVar: '%s' not found or not a number\n", name);
     return 0;
@@ -218,6 +232,10 @@ char* getVarString(const char* name) {
     if (v) {
         if (v->type == VAR_STRING && v->value.strValue) {
             return v->value.strValue;
+        }
+        // If it's a DLL function, return empty string
+        if (v->type == VAR_DLL_FUNC) {
+            return "";
         }
     }
     return "";
@@ -278,6 +296,7 @@ void setArrayElement(const char* name, int index, double value) {
         v->value.array[index]->type = VAR_NUMBER;
         v->value.array[index]->value.numValue = 0;
         v->value.array[index]->value.strValue = NULL;
+        v->value.array[index]->value.funcPtr = NULL;
     }
     
     if (v->value.array[index]->type == VAR_STRING && v->value.array[index]->value.strValue) {
@@ -365,6 +384,7 @@ void setArrayStringElement(const char* name, int index, const char* value) {
         v->value.array[index]->type = VAR_STRING;
         v->value.array[index]->value.numValue = 0;
         v->value.array[index]->value.strValue = NULL;
+        v->value.array[index]->value.funcPtr = NULL;
     }
     
     if (v->value.array[index]->type == VAR_STRING && v->value.array[index]->value.strValue) {
@@ -413,6 +433,7 @@ void pounce(const char* name) {
                 free(den[i].value.array);
                 den[i].value.array = NULL;
             }
+            // If it was a DLL function, nothing to free
             for (int j = i; j < varCount - 1; j++) {
                 den[j] = den[j + 1];
             }
@@ -436,6 +457,8 @@ void hunt() {
             printf("  %s = \"%s\"\n", den[i].name, den[i].value.strValue ? den[i].value.strValue : "");
         } else if (den[i].type == VAR_ARRAY) {
             printf("  %s [ %d ] (array, %d elements)\n", den[i].name, den[i].array_capacity, den[i].array_length);
+        } else if (den[i].type == VAR_DLL_FUNC) {
+            printf("  %s (DLL function)\n", den[i].name);
         }
     }
     printf("\n");
@@ -539,6 +562,7 @@ void cleanup_all() {
             free(den[i].value.array);
             den[i].value.array = NULL;
         }
+        // DLL functions don't need cleanup
     }
     varCount = 0;
     
